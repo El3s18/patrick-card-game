@@ -21,7 +21,8 @@ enum class Valeur(val point: Int) {
 
 data class Carte(val famille: Famille, val valeur: Valeur)
 
-fun creerPaquet (): List<Carte> {
+
+fun creerPaquet(): List<Carte> {
     val cartes = mutableListOf<Carte>()
     for (famille in Famille.entries) {
         for (valeur in Valeur.entries) {
@@ -31,4 +32,16 @@ fun creerPaquet (): List<Carte> {
     return cartes
 }
 
+fun melangerPaquet(): List<Carte>{
+    val paquet = creerPaquet().shuffled()
+    return paquet
+}
 
+fun distribuerCartes(joueurs: List<Joueur>, paquet: MutableList<Carte>) {
+    repeat(5) {
+        for (joueur in joueurs) {
+            val carte = paquet.removeAt(0)
+            joueur.main.add(carte)
+        }
+    }
+}
