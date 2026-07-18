@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import com.example.patrick.model.Famille
 
 @Composable
 fun CarteVisuelle(carte: Carte) {
@@ -19,6 +20,16 @@ fun CarteVisuelle(carte: Carte) {
             .border(width = 1.dp, color = Color.Black)
             .padding(8.dp)
     ) {
-        Text(text = "${carte.valeur.ordinal + 1}${carte.famille.symbole}")
+        Text(
+            text = "${carte.valeur.ordinal + 1}${carte.famille.symbole}",
+            color = couleurDeLaFamille(carte.famille)
+        )
+    }
+}
+
+fun couleurDeLaFamille(famille: Famille): Color {
+    return when (famille) {
+        Famille.COEUR, Famille.CARREAU -> Color.Red
+        Famille.PIQUE, Famille.TREFLE -> Color.Black
     }
 }
