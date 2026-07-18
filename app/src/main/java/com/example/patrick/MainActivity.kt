@@ -38,14 +38,41 @@ import com.example.patrick.model.piocherCarteDuBourrer
 import com.example.patrick.model.terminerManche
 import com.example.patrick.model.trouverGagnant
 import com.example.patrick.model.trouverPerdant
+import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
+import com.example.patrick.ui.screens.EcranMenuPrincipal
 
+enum class Ecran {
+    MENU_PRINCIPAL,
+    CHOIX_NOMBRE_JOUEURS,
+    JEU
+}
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             PatrickTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    EcranDeTest(modifier = Modifier.padding(innerPadding))
+                    var ecranActuel by remember { mutableStateOf(Ecran.MENU_PRINCIPAL) }
+                    var nombreJoueursChoisi by remember { mutableStateOf(2) }
+
+                    when (ecranActuel) {
+                        Ecran.MENU_PRINCIPAL -> EcranMenuPrincipal(
+                            onJouerContreIA = {
+                                nombreJoueursChoisi = 2
+                                ecranActuel = Ecran.JEU
+                            },
+                            onJouerEnLocal = {
+                                ecranActuel = Ecran.CHOIX_NOMBRE_JOUEURS
+                            }
+                        )
+                        Ecran.CHOIX_NOMBRE_JOUEURS -> EcranChoixNombreJoueurs(
+                            onConfirmer = { nombre ->
+                                nombreJoueursChoisi = nombre
+                                ecranActuel = Ecran.JEU
+                            }
+                        )
+                        Ecran.JEU -> EcranDeTest(modifier = Modifier.padding(innerPadding))
+                    }
                 }
             }
         }
