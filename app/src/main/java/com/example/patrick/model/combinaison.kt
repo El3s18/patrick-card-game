@@ -53,3 +53,28 @@ fun estUneCombinaisonValide(cartes: List<Carte>): Boolean {
             estUnZobiLaMouche(cartes) ||
             estUneCouleur(cartes)
 }
+
+fun combinaisons(cartes: List<Carte>, taille: Int): List<List<Carte>> {
+    if (taille == 0) return listOf(listOf())
+    if (cartes.isEmpty()) return listOf()
+
+    val premiere = cartes.first()
+    val reste = cartes.drop(1)
+
+    val avecPremiere = combinaisons(reste, taille - 1).map { listOf(premiere) + it }
+    val sansPremiere = combinaisons(reste, taille)
+
+    return avecPremiere + sansPremiere
+}
+
+fun trouverCombinaisonJouable(main: List<Carte>): List<Carte>? {
+    for (taille in 2..5) {
+        val sousGroupes = combinaisons(main, taille)
+        for (groupe in sousGroupes) {
+            if (estUneCombinaisonValide(groupe)) {
+                return groupe
+            }
+        }
+    }
+    return null
+}

@@ -32,7 +32,9 @@ import com.example.patrick.model.defausserCarteUnique
 import androidx.compose.foundation.layout.width
 import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
+import com.example.patrick.model.jouerTourBot
 import com.example.patrick.model.piocherBourrer
+import com.example.patrick.model.piocherCarteDuBourrer
 import com.example.patrick.model.terminerManche
 import com.example.patrick.model.trouverGagnant
 import com.example.patrick.model.trouverPerdant
@@ -61,6 +63,7 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         mutableStateOf(liste)
     }
     var bourrer by remember { mutableStateOf(mutableListOf<Carte>()) }
+    var carteDisponiblePourPioche by remember { mutableStateOf<Carte?>(null) }
     var selection by remember { mutableStateOf(listOf<Carte>()) }
     var message by remember { mutableStateOf("") }
     var aJoueCeTour by remember { mutableStateOf(false) }
@@ -74,6 +77,52 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         }
     }
 
+    fun gererFinDeManche(quiCrie: Joueur) {
+        val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+        terminerManche(partie, quiCrie)
+
+        val perdant = trouverPerdant(partie)
+        if (perdant != null) {
+            val gagnant = trouverGagnant(partie)
+            message = "${quiCrie.nom} a crié Patrick ! Partie terminée : ${gagnant.nom} gagne (perdant : ${perdant.nom}, ${perdant.score} pts) !"
+            partieTerminee = true
+            joueurs = joueurs.toMutableList()
+        } else {
+            val nouveauPaquet = melangerPaquet().toMutableList()
+            val nouveauxJoueurs = joueurs.map { it.copy(main = mutableListOf()) }
+            distribuerCartes(nouveauxJoueurs, nouveauPaquet)
+
+            paquet = nouveauPaquet
+            joueurs = nouveauxJoueurs
+            bourrer = mutableListOf()
+            carteDisponiblePourPioche = null
+            selection = listOf()
+            aJoueCeTour = false
+            message = "${quiCrie.nom} a crié Patrick ! Scores : " +
+                    joueurs.joinToString { "${it.nom}=${it.score}" } +
+                    " — Nouvelle manche distribuée."
+        }
+    }
+
+    fun jouerBotAutomatiquement() {
+        val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+        val botPeutCrierPatrick = jouerTourBot(partie, joueurs[1])
+
+        joueurs = joueurs.toMutableList().also {
+            it[1] = it[1].copy(main = it[1].main.toMutableList())
+        }
+        bourrer = bourrer.toMutableList()
+        paquet = paquet.toMutableList()
+        // Après le tour complet du bot, sa carte défaussée devient disponible pour toi
+        carteDisponiblePourPioche = bourrer.lastOrNull()
+
+        if (botPeutCrierPatrick) {
+            gererFinDeManche(joueurs[1])
+        } else {
+            message = "Le Bot a joué son tour. À toi !"
+        }
+    }
+
     Column(modifier = modifier.padding(16.dp)) {
         Button(
             onClick = {
@@ -82,9 +131,9 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                     it[0] = it[0].copy(main = (it[0].main + carte).toMutableList())
                 }
                 aJoueCeTour = false
-                message = "Carte piochée ! Tour suivant : joue ou défausse."
+                jouerBotAutomatiquement()
             },
-            enabled = aJoueCeTour
+            enabled = aJoueCeTour && !partieTerminee
         ) {
             Text("Piocher")
         }
@@ -110,12 +159,14 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                     val reussiCombinaison = defausserCombinaison(partie, joueurs[0], selection)
                     if (reussiCombinaison) {
                         joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
+                        bourrer = bourrer.toMutableList()
                         message = "Combinaison posée ! Pioche pour continuer."
                         selection = listOf()
                         aJoueCeTour = true
                     } else if (selection.size == 1) {
                         defausserCarteUnique(partie, joueurs[0], selection[0])
                         joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
+                        bourrer = bourrer.toMutableList()
                         message = "Carte défaussée ! Pioche pour continuer."
                         selection = listOf()
                         aJoueCeTour = true
@@ -123,7 +174,7 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                         message = "Sélection invalide"
                     }
                 },
-                enabled = !aJoueCeTour
+                enabled = !aJoueCeTour && !partieTerminee
             ) {
                 Text("Jouer")
             }
@@ -131,27 +182,7 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.width(8.dp))
 
             Button(
-                onClick = {
-                    val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
-                    terminerManche(partie, joueurs[0])
-
-                    val perdant = trouverPerdant(partie)
-                    if (perdant != null) {
-                        val gagnant = trouverGagnant(partie)
-                        message = "Partie terminée ! ${perdant.nom} a perdu (${perdant.score} pts). ${gagnant.nom} gagne avec ${gagnant.score} pts !"
-                        partieTerminee = true
-                    } else {
-                        val nouveauPaquet = melangerPaquet().toMutableList()
-                        val nouveauxJoueurs = joueurs.map { it.copy(main = mutableListOf()) }
-                        distribuerCartes(nouveauxJoueurs, nouveauPaquet)
-
-                        paquet = nouveauPaquet
-                        joueurs = nouveauxJoueurs
-                        bourrer = mutableListOf()
-                        aJoueCeTour = false
-                        message = "Manche terminée ! Scores : " + joueurs.joinToString { "${it.nom}=${it.score}" } + " — Nouvelle manche distribuée."
-                    }
-                },
+                onClick = { gererFinDeManche(joueurs[0]) },
                 enabled = !aJoueCeTour && !partieTerminee && calculerScoreMain(joueurs[0].main) <= 11
             ) {
                 Text("Crier Patrick !")
@@ -160,19 +191,21 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Bourrer (défausse) :")
-        if (bourrer.isNotEmpty()) {
+        Text("Carte disponible à la pioche (bourrer) :")
+        val carteDispo = carteDisponiblePourPioche
+        if (carteDispo != null) {
             CarteVisuelle(
-                carte = bourrer.last(),
+                carte = carteDispo,
                 selectionnee = false,
                 onClick = {
-                    if (aJoueCeTour) {
+                    if (aJoueCeTour && !partieTerminee) {
                         val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
-                        piocherBourrer(partie, joueurs[0])
+                        piocherCarteDuBourrer(partie, joueurs[0], carteDispo)
                         joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
                         bourrer = bourrer.toMutableList()
+                        carteDisponiblePourPioche = null
                         aJoueCeTour = false
-                        message = "Carte du bourrer récupérée !"
+                        jouerBotAutomatiquement()
                     }
                 }
             )

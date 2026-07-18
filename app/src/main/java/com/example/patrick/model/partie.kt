@@ -29,3 +29,8 @@ fun defausserCarteUnique(partie: Partie, joueur: Joueur, carte: Carte) {
     joueur.main.remove(carte)
     partie.bourrer.add(carte)
 }
+
+fun piocherCarteDuBourrer(partie: Partie, joueur: Joueur, carte: Carte) {
+    partie.bourrer.remove(carte)
+    joueur.main.add(carte)
+}
