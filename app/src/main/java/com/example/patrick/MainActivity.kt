@@ -23,6 +23,8 @@ import androidx.compose.material3.Button
 import androidx.compose.ui.unit.dp
 import com.example.patrick.model.Carte
 import com.example.patrick.model.melangerPaquet
+import com.example.patrick.ui.components.CarteVisuelle
+import androidx.compose.foundation.layout.Row
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,8 +54,10 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        for (carte in main) {
-            Text(text = "${carte.valeur} de ${carte.famille}")
+        Row {
+            for (carte in main) {
+                CarteVisuelle(carte = carte)
+            }
         }
     }
 }

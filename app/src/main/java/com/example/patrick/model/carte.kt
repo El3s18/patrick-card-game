@@ -1,7 +1,10 @@
 package com.example.patrick.model
 
-enum class Famille {
-    PIQUE, COEUR, CARREAU, TREFLE
+enum class Famille(val symbole: String) {
+    PIQUE("♠"),
+    COEUR("♥"),
+    CARREAU("♦"),
+    TREFLE("♣")
 }
 enum class Valeur(val point: Int) {
     AS(1),
