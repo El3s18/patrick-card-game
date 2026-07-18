@@ -53,6 +53,7 @@ import com.example.patrick.model.trouverPerdant
 import com.example.patrick.ui.components.DosDeCarteVisuelle
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
 import com.example.patrick.ui.screens.EcranMenuPrincipal
+import com.example.patrick.ui.screens.EcranRegles
 import com.example.patrick.ui.theme.CremeCarteFond
 import com.example.patrick.ui.theme.NoirCarte
 import com.example.patrick.ui.theme.OrAccent
@@ -62,6 +63,7 @@ import com.example.patrick.ui.theme.VertTapis
 enum class Ecran {
     MENU_PRINCIPAL,
     CHOIX_NOMBRE_JOUEURS,
+    REGLES,
     JEU
 }
 class MainActivity : ComponentActivity() {
@@ -83,8 +85,12 @@ class MainActivity : ComponentActivity() {
                             onJouerEnLocal = {
                                 modeContreIA = false
                                 ecranActuel = Ecran.CHOIX_NOMBRE_JOUEURS
+                            } ,
+                            onVoirRegles = {
+                                ecranActuel = Ecran.REGLES
                             }
                         )
+                        Ecran.REGLES -> EcranRegles(onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL })
                         Ecran.CHOIX_NOMBRE_JOUEURS -> EcranChoixNombreJoueurs(
                             onConfirmer = { noms ->
                                 nomsJoueursChoisis = noms
