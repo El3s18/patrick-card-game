@@ -11,13 +11,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
 import com.example.patrick.model.Famille
-
+import androidx.compose.foundation.clickable
 @Composable
-fun CarteVisuelle(carte: Carte) {
+fun CarteVisuelle(carte: Carte, selectionnee: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(width = 60.dp, height = 90.dp)
-            .border(width = 1.dp, color = Color.Black)
+            .border(
+                width = if (selectionnee) 3.dp else 1.dp,
+                color = if (selectionnee) Color.Blue else Color.Black
+            )
+            .clickable { onClick() }
             .padding(8.dp)
     ) {
         Text(

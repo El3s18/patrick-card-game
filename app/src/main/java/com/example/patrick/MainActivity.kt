@@ -43,6 +43,15 @@ class MainActivity : ComponentActivity() {
 fun EcranDeTest(modifier: Modifier = Modifier) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
     var main by remember { mutableStateOf(mutableListOf<Carte>()) }
+    var selection by remember { mutableStateOf(listOf<Carte>()) }
+
+    fun toggleSelection(carte: Carte) {
+        selection = if (selection.contains(carte)) {
+            selection - carte
+        } else {
+            selection + carte
+        }
+    }
 
     Column(modifier = modifier.padding(16.dp)) {
         Button(onClick = {
@@ -56,9 +65,17 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
 
         Row {
             for (carte in main) {
-                CarteVisuelle(carte = carte)
+                CarteVisuelle(
+                    carte = carte,
+                    selectionnee = selection.contains(carte),
+                    onClick = { toggleSelection(carte) }
+                )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("Cartes sélectionnées : ${selection.size}")
     }
 }
 

@@ -25,3 +25,7 @@ fun defausserCombinaison(partie: Partie, joueur: Joueur, combinaison: List<Carte
     return true
 }
 
+fun defausserCarteUnique(partie: Partie, joueur: Joueur, carte: Carte) {
+    joueur.main.remove(carte)
+    partie.bourrer.add(carte)
+}
