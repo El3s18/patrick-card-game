@@ -10,7 +10,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.patrick.ui.theme.PatrickTheme
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -30,10 +29,10 @@ import com.example.patrick.model.Partie
 import com.example.patrick.model.defausserCombinaison
 import com.example.patrick.model.defausserCarteUnique
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
 import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.jouerTourBot
-import com.example.patrick.model.piocherBourrer
 import com.example.patrick.model.piocherCarteDuBourrer
 import com.example.patrick.model.terminerManche
 import com.example.patrick.model.trouverGagnant
@@ -53,25 +52,31 @@ class MainActivity : ComponentActivity() {
             PatrickTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     var ecranActuel by remember { mutableStateOf(Ecran.MENU_PRINCIPAL) }
-                    var nombreJoueursChoisi by remember { mutableStateOf(2) }
+                    var nomsJoueursChoisis by remember { mutableStateOf(listOf<String>()) }
+                    var modeContreIA by remember { mutableStateOf(true) }
 
                     when (ecranActuel) {
                         Ecran.MENU_PRINCIPAL -> EcranMenuPrincipal(
                             onJouerContreIA = {
-                                nombreJoueursChoisi = 2
+                                modeContreIA = true
                                 ecranActuel = Ecran.JEU
                             },
                             onJouerEnLocal = {
+                                modeContreIA = false
                                 ecranActuel = Ecran.CHOIX_NOMBRE_JOUEURS
                             }
                         )
                         Ecran.CHOIX_NOMBRE_JOUEURS -> EcranChoixNombreJoueurs(
-                            onConfirmer = { nombre ->
-                                nombreJoueursChoisi = nombre
+                            onConfirmer = { noms ->
+                                nomsJoueursChoisis = noms
                                 ecranActuel = Ecran.JEU
                             }
                         )
-                        Ecran.JEU -> EcranDeTest(modifier = Modifier.padding(innerPadding))
+                        Ecran.JEU -> EcranDeTest(
+                            modifier = Modifier.padding(innerPadding),
+                            nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
+                            contreIA = modeContreIA
+                        )
                     }
                 }
             }
@@ -80,21 +85,28 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun EcranDeTest(modifier: Modifier = Modifier) {
+fun EcranDeTest(modifier: Modifier = Modifier, nomsJoueurs: List<String> = listOf("Moi"), contreIA: Boolean = true) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
     var joueurs by remember {
-        val j1 = Joueur(nom = "Moi", main = mutableListOf())
-        val j2 = Joueur(nom = "Bot", main = mutableListOf())
-        val liste = listOf(j1, j2)
+        val liste = if (contreIA) {
+            listOf(Joueur(nom = nomsJoueurs[0], main = mutableListOf()), Joueur(nom = "Bot", main = mutableListOf()))
+        } else {
+            nomsJoueurs.map { nom -> Joueur(nom = nom, main = mutableListOf()) }
+        }
         distribuerCartes(liste, paquet)
         mutableStateOf(liste)
     }
+    var indexJoueurActif by remember { mutableStateOf(0) }
+    var enTransition by remember { mutableStateOf(false) }
     var bourrer by remember { mutableStateOf(mutableListOf<Carte>()) }
     var carteDisponiblePourPioche by remember { mutableStateOf<Carte?>(null) }
     var selection by remember { mutableStateOf(listOf<Carte>()) }
     var message by remember { mutableStateOf("") }
     var aJoueCeTour by remember { mutableStateOf(false) }
     var partieTerminee by remember { mutableStateOf(false) }
+    var aPioche by remember { mutableStateOf(false) }
+
+    val joueurActif = joueurs[indexJoueurActif]
 
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) {
@@ -125,6 +137,8 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
             carteDisponiblePourPioche = null
             selection = listOf()
             aJoueCeTour = false
+            indexJoueurActif = 0
+            enTransition = !contreIA
             message = "${quiCrie.nom} a crié Patrick ! Scores : " +
                     joueurs.joinToString { "${it.nom}=${it.score}" } +
                     " — Nouvelle manche distribuée."
@@ -140,7 +154,6 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         }
         bourrer = bourrer.toMutableList()
         paquet = paquet.toMutableList()
-        // Après le tour complet du bot, sa carte défaussée devient disponible pour toi
         carteDisponiblePourPioche = bourrer.lastOrNull()
 
         if (botPeutCrierPatrick) {
@@ -150,97 +163,129 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         }
     }
 
+    fun passerAuJoueurSuivant() {
+        carteDisponiblePourPioche = bourrer.lastOrNull()
+        indexJoueurActif = (indexJoueurActif + 1) % joueurs.size
+        aJoueCeTour = false
+        selection = listOf()
+        enTransition = true
+    }
+
     Column(modifier = modifier.padding(16.dp)) {
-        Button(
-            onClick = {
-                val carte = paquet.removeAt(0)
-                joueurs = joueurs.toMutableList().also {
-                    it[0] = it[0].copy(main = (it[0].main + carte).toMutableList())
-                }
-                aJoueCeTour = false
-                jouerBotAutomatiquement()
-            },
-            enabled = aJoueCeTour && !partieTerminee
-        ) {
-            Text("Piocher")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row {
-            for (carte in joueurs[0].main) {
-                CarteVisuelle(
-                    carte = carte,
-                    selectionnee = selection.contains(carte),
-                    onClick = { toggleSelection(carte) }
-                )
+        if (enTransition) {
+            Text(text = "Au tour de ${joueurActif.nom}", fontSize = 24.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { enTransition = false }) {
+                Text("Je suis prêt")
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row {
+        } else {
             Button(
                 onClick = {
-                    val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
-                    val reussiCombinaison = defausserCombinaison(partie, joueurs[0], selection)
-                    if (reussiCombinaison) {
-                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
-                        bourrer = bourrer.toMutableList()
-                        message = "Combinaison posée ! Pioche pour continuer."
-                        selection = listOf()
-                        aJoueCeTour = true
-                    } else if (selection.size == 1) {
-                        defausserCarteUnique(partie, joueurs[0], selection[0])
-                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
-                        bourrer = bourrer.toMutableList()
-                        message = "Carte défaussée ! Pioche pour continuer."
-                        selection = listOf()
-                        aJoueCeTour = true
-                    } else {
-                        message = "Sélection invalide"
+                    val carte = paquet.removeAt(0)
+                    joueurs = joueurs.toMutableList().also {
+                        it[indexJoueurActif] = it[indexJoueurActif].copy(main = (it[indexJoueurActif].main + carte).toMutableList())
                     }
-                },
-                enabled = !aJoueCeTour && !partieTerminee
-            ) {
-                Text("Jouer")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = { gererFinDeManche(joueurs[0]) },
-                enabled = !aJoueCeTour && !partieTerminee && calculerScoreMain(joueurs[0].main) <= 11
-            ) {
-                Text("Crier Patrick !")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Carte disponible à la pioche (bourrer) :")
-        val carteDispo = carteDisponiblePourPioche
-        if (carteDispo != null) {
-            CarteVisuelle(
-                carte = carteDispo,
-                selectionnee = false,
-                onClick = {
-                    if (aJoueCeTour && !partieTerminee) {
-                        val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
-                        piocherCarteDuBourrer(partie, joueurs[0], carteDispo)
-                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
-                        bourrer = bourrer.toMutableList()
-                        carteDisponiblePourPioche = null
+                    if (contreIA) {
                         aJoueCeTour = false
                         jouerBotAutomatiquement()
+                    } else {
+                        aPioche = true
                     }
-                }
-            )
-        } else {
-            Text("Vide")
-        }
+                },
+                enabled = aJoueCeTour && !aPioche && !partieTerminee
+            ) {
+                Text("Piocher")
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(message)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row {
+                for (carte in joueurActif.main) {
+                    CarteVisuelle(
+                        carte = carte,
+                        selectionnee = selection.contains(carte),
+                        onClick = { toggleSelection(carte) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row {
+                Button(
+                    onClick = {
+                        val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+                        val reussiCombinaison = defausserCombinaison(partie, joueurActif, selection)
+                        if (reussiCombinaison) {
+                            joueurs = joueurs.toMutableList().also { it[indexJoueurActif] = it[indexJoueurActif].copy(main = it[indexJoueurActif].main.toMutableList()) }
+                            bourrer = bourrer.toMutableList()
+                            message = "Combinaison posée ! Pioche pour continuer."
+                            selection = listOf()
+                            aJoueCeTour = true
+                        } else if (selection.size == 1) {
+                            defausserCarteUnique(partie, joueurActif, selection[0])
+                            joueurs = joueurs.toMutableList().also { it[indexJoueurActif] = it[indexJoueurActif].copy(main = it[indexJoueurActif].main.toMutableList()) }
+                            bourrer = bourrer.toMutableList()
+                            message = "Carte défaussée ! Pioche pour continuer."
+                            selection = listOf()
+                            aJoueCeTour = true
+                        } else {
+                            message = "Sélection invalide"
+                        }
+                    },
+                    enabled = !aJoueCeTour && !partieTerminee
+                ) {
+                    Text("Jouer")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = { gererFinDeManche(joueurActif) },
+                    enabled = !aJoueCeTour && !partieTerminee && calculerScoreMain(joueurActif.main) <= 11
+                ) {
+                    Text("Crier Patrick !")
+                }
+            }
+            if (aPioche && !contreIA) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = {
+                    aPioche = false
+                    passerAuJoueurSuivant()
+                }) {
+                    Text("Joueur suivant")
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text("Carte disponible à la pioche (bourrer) :")
+            val carteDispo = carteDisponiblePourPioche
+            if (carteDispo != null) {
+                CarteVisuelle(
+                    carte = carteDispo,
+                    selectionnee = false,
+                    onClick = {
+                        if (aJoueCeTour && !partieTerminee) {
+                            val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+                            piocherCarteDuBourrer(partie, joueurActif, carteDispo)
+                            joueurs = joueurs.toMutableList().also { it[indexJoueurActif] = it[indexJoueurActif].copy(main = it[indexJoueurActif].main.toMutableList()) }
+                            bourrer = bourrer.toMutableList()
+                            carteDisponiblePourPioche = null
+                            if (contreIA) {
+                                aJoueCeTour = false
+                                jouerBotAutomatiquement()
+                            } else {
+                                aPioche = true
+                            }
+                        }
+                    }
+                )
+            } else {
+                Text("Vide")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(message)
+        }
     }
 }
