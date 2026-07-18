@@ -30,8 +30,10 @@ import com.example.patrick.model.Partie
 import com.example.patrick.model.defausserCombinaison
 import com.example.patrick.model.defausserCarteUnique
 import androidx.compose.foundation.layout.width
+import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.piocherBourrer
+import com.example.patrick.model.terminerManche
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,17 +51,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun EcranDeTest(modifier: Modifier = Modifier) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
-    var joueur by remember {
-        val j = Joueur(nom = "Moi", main = mutableListOf())
-        distribuerCartes(listOf(j), paquet)
-        mutableStateOf(j)
+    var joueurs by remember {
+        val j1 = Joueur(nom = "Moi", main = mutableListOf())
+        val j2 = Joueur(nom = "Bot", main = mutableListOf())
+        val liste = listOf(j1, j2)
+        distribuerCartes(liste, paquet)
+        mutableStateOf(liste)
     }
     var bourrer by remember { mutableStateOf(mutableListOf<Carte>()) }
     var selection by remember { mutableStateOf(listOf<Carte>()) }
     var message by remember { mutableStateOf("") }
     var aJoueCeTour by remember { mutableStateOf(false) }
-
-    // ... reste du code inchangé
 
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) {
@@ -73,7 +75,9 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         Button(
             onClick = {
                 val carte = paquet.removeAt(0)
-                joueur = joueur.copy(main = (joueur.main + carte).toMutableList())
+                joueurs = joueurs.toMutableList().also {
+                    it[0] = it[0].copy(main = (it[0].main + carte).toMutableList())
+                }
                 aJoueCeTour = false
                 message = "Carte piochée ! Tour suivant : joue ou défausse."
             },
@@ -85,7 +89,7 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Row {
-            for (carte in joueur.main) {
+            for (carte in joueurs[0].main) {
                 CarteVisuelle(
                     carte = carte,
                     selectionnee = selection.contains(carte),
@@ -99,16 +103,16 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         Row {
             Button(
                 onClick = {
-                    val partie = Partie(joueurs = listOf(joueur), canaillou = paquet, bourrer = bourrer)
-                    val reussiCombinaison = defausserCombinaison(partie, joueur, selection)
+                    val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+                    val reussiCombinaison = defausserCombinaison(partie, joueurs[0], selection)
                     if (reussiCombinaison) {
-                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
                         message = "Combinaison posée ! Pioche pour continuer."
                         selection = listOf()
                         aJoueCeTour = true
                     } else if (selection.size == 1) {
-                        defausserCarteUnique(partie, joueur, selection[0])
-                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        defausserCarteUnique(partie, joueurs[0], selection[0])
+                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
                         message = "Carte défaussée ! Pioche pour continuer."
                         selection = listOf()
                         aJoueCeTour = true
@@ -119,6 +123,20 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                 enabled = !aJoueCeTour
             ) {
                 Text("Jouer")
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = {
+                    val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+                    terminerManche(partie, joueurs[0])
+                    message = "Patrick crié ! Scores : " + joueurs.joinToString { "${it.nom}=${it.score}" }
+                    joueurs = joueurs.toMutableList()
+                },
+                enabled = !aJoueCeTour && calculerScoreMain(joueurs[0].main) <= 11
+            ) {
+                Text("Crier Patrick !")
             }
         }
 
@@ -131,9 +149,9 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                 selectionnee = false,
                 onClick = {
                     if (aJoueCeTour) {
-                        val partie = Partie(joueurs = listOf(joueur), canaillou = paquet, bourrer = bourrer)
-                        piocherBourrer(partie, joueur)
-                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
+                        piocherBourrer(partie, joueurs[0])
+                        joueurs = joueurs.toMutableList().also { it[0] = it[0].copy(main = it[0].main.toMutableList()) }
                         bourrer = bourrer.toMutableList()
                         aJoueCeTour = false
                         message = "Carte du bourrer récupérée !"
@@ -143,20 +161,8 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
         } else {
             Text("Vide")
         }
-    }
-}
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    PatrickTheme {
-        Greeting("Android")
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(message)
     }
 }
