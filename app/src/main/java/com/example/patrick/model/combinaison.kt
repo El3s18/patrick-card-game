@@ -44,3 +44,12 @@ fun estUneCouleur(cartes: List<Carte>): Boolean {
     }
     return true
 }
+
+fun estUneCombinaisonValide(cartes: List<Carte>): Boolean {
+    return estUnePaire(cartes) ||
+            estUnBrelan(cartes) ||
+            estUnCarre(cartes) ||
+            estUnZobi(cartes) ||
+            estUnZobiLaMouche(cartes) ||
+            estUneCouleur(cartes)
+}
