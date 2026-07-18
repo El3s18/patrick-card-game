@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
                         Ecran.JEU -> EcranDeTest(
                             modifier = Modifier.padding(innerPadding),
                             nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
-                            contreIA = modeContreIA
+                            contreIA = modeContreIA,
                         )
                     }
                 }
@@ -104,7 +104,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun EcranDeTest(modifier: Modifier = Modifier, nomsJoueurs: List<String> = listOf("Moi"), contreIA: Boolean = true) {
+fun EcranDeTest(
+    modifier: Modifier = Modifier,
+    nomsJoueurs: List<String> = listOf("Moi"),
+    contreIA: Boolean = true,
+    onRetourMenu: () -> Unit = {}
+) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
     var joueurs by remember {
         val liste = if (contreIA) {
@@ -129,7 +134,22 @@ fun EcranDeTest(modifier: Modifier = Modifier, nomsJoueurs: List<String> = listO
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) selection - carte else selection + carte
     }
+    fun recommencerPartie() {
+        val nouveauPaquet = melangerPaquet().toMutableList()
+        val nouveauxJoueurs = joueurs.map { it.copy(main = mutableListOf(), score = 0) }
+        distribuerCartes(nouveauxJoueurs, nouveauPaquet)
 
+        paquet = nouveauPaquet
+        joueurs = nouveauxJoueurs
+        bourrer = mutableListOf()
+        carteDisponiblePourPioche = null
+        selection = listOf()
+        aPioche = false
+        indexJoueurActif = 0
+        partieTerminee = false
+        enTransition = !contreIA
+        message = "Nouvelle partie !"
+    }
     fun gererFinDeManche(quiCrie: Joueur) {
         val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
         terminerManche(partie, quiCrie)
@@ -226,7 +246,25 @@ fun EcranDeTest(modifier: Modifier = Modifier, nomsJoueurs: List<String> = listO
         modifier = modifier.fillMaxSize().background(VertTapis).padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        if (enTransition) {
+        if (partieTerminee) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(text = "Partie terminée !", fontSize = 28.sp, color = CremeCarteFond, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = message, fontSize = 16.sp, color = CremeCarteFond)
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(onClick = { recommencerPartie() }) {
+                    Text("Rejouer")
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(onClick = { onRetourMenu() }) {
+                    Text("Retour au menu")
+                }
+            }
+        } else if (enTransition) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
