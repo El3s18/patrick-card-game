@@ -34,6 +34,8 @@ import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.piocherBourrer
 import com.example.patrick.model.terminerManche
+import com.example.patrick.model.trouverGagnant
+import com.example.patrick.model.trouverPerdant
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +64,7 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
     var selection by remember { mutableStateOf(listOf<Carte>()) }
     var message by remember { mutableStateOf("") }
     var aJoueCeTour by remember { mutableStateOf(false) }
+    var partieTerminee by remember { mutableStateOf(false) }
 
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) {
@@ -131,10 +134,25 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
                 onClick = {
                     val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
                     terminerManche(partie, joueurs[0])
-                    message = "Patrick crié ! Scores : " + joueurs.joinToString { "${it.nom}=${it.score}" }
-                    joueurs = joueurs.toMutableList()
+
+                    val perdant = trouverPerdant(partie)
+                    if (perdant != null) {
+                        val gagnant = trouverGagnant(partie)
+                        message = "Partie terminée ! ${perdant.nom} a perdu (${perdant.score} pts). ${gagnant.nom} gagne avec ${gagnant.score} pts !"
+                        partieTerminee = true
+                    } else {
+                        val nouveauPaquet = melangerPaquet().toMutableList()
+                        val nouveauxJoueurs = joueurs.map { it.copy(main = mutableListOf()) }
+                        distribuerCartes(nouveauxJoueurs, nouveauPaquet)
+
+                        paquet = nouveauPaquet
+                        joueurs = nouveauxJoueurs
+                        bourrer = mutableListOf()
+                        aJoueCeTour = false
+                        message = "Manche terminée ! Scores : " + joueurs.joinToString { "${it.nom}=${it.score}" } + " — Nouvelle manche distribuée."
+                    }
                 },
-                enabled = !aJoueCeTour && calculerScoreMain(joueurs[0].main) <= 11
+                enabled = !aJoueCeTour && !partieTerminee && calculerScoreMain(joueurs[0].main) <= 11
             ) {
                 Text("Crier Patrick !")
             }
