@@ -25,6 +25,13 @@ import com.example.patrick.model.Carte
 import com.example.patrick.model.melangerPaquet
 import com.example.patrick.ui.components.CarteVisuelle
 import androidx.compose.foundation.layout.Row
+import com.example.patrick.model.Joueur
+import com.example.patrick.model.Partie
+import com.example.patrick.model.defausserCombinaison
+import com.example.patrick.model.defausserCarteUnique
+import androidx.compose.foundation.layout.width
+import com.example.patrick.model.distribuerCartes
+import com.example.patrick.model.piocherBourrer
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,8 +49,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun EcranDeTest(modifier: Modifier = Modifier) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
-    var main by remember { mutableStateOf(mutableListOf<Carte>()) }
+    var joueur by remember {
+        val j = Joueur(nom = "Moi", main = mutableListOf())
+        distribuerCartes(listOf(j), paquet)
+        mutableStateOf(j)
+    }
+    var bourrer by remember { mutableStateOf(mutableListOf<Carte>()) }
     var selection by remember { mutableStateOf(listOf<Carte>()) }
+    var message by remember { mutableStateOf("") }
+    var aJoueCeTour by remember { mutableStateOf(false) }
+
+    // ... reste du code inchangé
 
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) {
@@ -54,17 +70,22 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.padding(16.dp)) {
-        Button(onClick = {
-            val carte = paquet.removeAt(0)
-            main = (main + carte).toMutableList()
-        }) {
+        Button(
+            onClick = {
+                val carte = paquet.removeAt(0)
+                joueur = joueur.copy(main = (joueur.main + carte).toMutableList())
+                aJoueCeTour = false
+                message = "Carte piochée ! Tour suivant : joue ou défausse."
+            },
+            enabled = aJoueCeTour
+        ) {
             Text("Piocher")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Row {
-            for (carte in main) {
+            for (carte in joueur.main) {
                 CarteVisuelle(
                     carte = carte,
                     selectionnee = selection.contains(carte),
@@ -75,10 +96,55 @@ fun EcranDeTest(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Cartes sélectionnées : ${selection.size}")
+        Row {
+            Button(
+                onClick = {
+                    val partie = Partie(joueurs = listOf(joueur), canaillou = paquet, bourrer = bourrer)
+                    val reussiCombinaison = defausserCombinaison(partie, joueur, selection)
+                    if (reussiCombinaison) {
+                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        message = "Combinaison posée ! Pioche pour continuer."
+                        selection = listOf()
+                        aJoueCeTour = true
+                    } else if (selection.size == 1) {
+                        defausserCarteUnique(partie, joueur, selection[0])
+                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        message = "Carte défaussée ! Pioche pour continuer."
+                        selection = listOf()
+                        aJoueCeTour = true
+                    } else {
+                        message = "Sélection invalide"
+                    }
+                },
+                enabled = !aJoueCeTour
+            ) {
+                Text("Jouer")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("Bourrer (défausse) :")
+        if (bourrer.isNotEmpty()) {
+            CarteVisuelle(
+                carte = bourrer.last(),
+                selectionnee = false,
+                onClick = {
+                    if (aJoueCeTour) {
+                        val partie = Partie(joueurs = listOf(joueur), canaillou = paquet, bourrer = bourrer)
+                        piocherBourrer(partie, joueur)
+                        joueur = joueur.copy(main = joueur.main.toMutableList())
+                        bourrer = bourrer.toMutableList()
+                        aJoueCeTour = false
+                        message = "Carte du bourrer récupérée !"
+                    }
+                }
+            )
+        } else {
+            Text("Vide")
+        }
     }
 }
-
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
