@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.example.patrick.data.creerPartieEnLigne
 import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.jouerTourBot
@@ -74,26 +75,18 @@ enum class Ecran {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this)
         val auth = FirebaseAuth.getInstance()
         auth.signInAnonymously()
             .addOnSuccessListener {
-                val userId = auth.currentUser?.uid
-                Log.d("FIREBASE_TEST", "Connexion anonyme réussie ! UID: $userId")
-
-                val db = FirebaseFirestore.getInstance()
-                val testData = hashMapOf("message" to "Bonjour depuis Patrick !", "timestamp" to System.currentTimeMillis())
-
-                db.collection("test").document("premier_test").set(testData)
-                    .addOnSuccessListener {
-                        Log.d("FIREBASE_TEST", "Écriture Firestore réussie !")
+                creerPartieEnLigne(
+                    nomJoueur = "TestJoueur",
+                    onSucces = { code ->
+                        Log.d("FIREBASE_TEST", "Partie créée avec le code : $code")
+                    },
+                    onEchec = { e ->
+                        Log.e("FIREBASE_TEST", "Erreur création partie", e)
                     }
-                    .addOnFailureListener { e ->
-                        Log.e("FIREBASE_TEST", "Erreur d'écriture Firestore", e)
-                    }
-            }
-            .addOnFailureListener { e ->
-                Log.e("FIREBASE_TEST", "Erreur de connexion anonyme", e)
+                )
             }
         setContent {
             PatrickTheme {
