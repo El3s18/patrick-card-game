@@ -56,6 +56,7 @@ import com.example.patrick.model.trouverPerdant
 import com.example.patrick.ui.components.AnimationCelebration
 import com.example.patrick.ui.components.DosDeCarteVisuelle
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
+import com.example.patrick.ui.screens.EcranDeJeuEnLigne
 import com.example.patrick.ui.screens.EcranLobbyEnLigne
 import com.example.patrick.ui.screens.EcranMenuPrincipal
 import com.example.patrick.ui.screens.EcranRegles
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
                     var nomsJoueursChoisis by remember { mutableStateOf(listOf<String>()) }
                     var modeContreIA by remember { mutableStateOf(true) }
                     var codePartieEnLigne by remember { mutableStateOf("") }
+                    var modeEnLigne by remember { mutableStateOf(false) }
                     when (ecranActuel) {
                         Ecran.MENU_PRINCIPAL -> EcranMenuPrincipal(
                             onJouerContreIA = {
@@ -134,11 +136,20 @@ class MainActivity : ComponentActivity() {
                                 ecranActuel = Ecran.JEU
                             }
                         )
-                        Ecran.JEU -> EcranDeTest(
-                            modifier = Modifier.padding(innerPadding),
-                            nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
-                            contreIA = modeContreIA,
-                        )
+                        Ecran.JEU -> {
+                            if (modeEnLigne) {
+                                EcranDeJeuEnLigne(
+                                    code = codePartieEnLigne,
+                                    modifier = Modifier.padding(innerPadding)
+                                )
+                            } else {
+                                EcranDeTest(
+                                    modifier = Modifier.padding(innerPadding),
+                                    nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
+                                    contreIA = modeContreIA,
+                                )
+                            }
+                        }
                         Ecran.LOBBY_EN_LIGNE -> EcranLobbyEnLigne(
                             onPartieCreee = { code, nom ->
                                 codePartieEnLigne = code
@@ -152,10 +163,9 @@ class MainActivity : ComponentActivity() {
                         )
                         Ecran.SALLE_ATTENTE -> EcranSalleAttente(
                             code = codePartieEnLigne,
-                            onDemarrer = {
-                                // on branchera le vrai démarrage de partie à l'étape suivante
-                            },
+                            onDemarrer = { },
                             onPartieDemarree = {
+                                modeEnLigne = true
                                 ecranActuel = Ecran.JEU
                             },
                             onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
@@ -199,6 +209,7 @@ fun EcranDeTest(
     var afficherResume by remember { mutableStateOf(false) }
     var scoresAvant by remember { mutableStateOf(listOf<Int>()) }
     var codePartieEnLigne by remember { mutableStateOf("") }
+    var modeEnLigne by remember { mutableStateOf(false) }
 
     val joueurActif = joueurs[indexJoueurActif]
 
