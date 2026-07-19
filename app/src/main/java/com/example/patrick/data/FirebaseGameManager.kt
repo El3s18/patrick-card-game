@@ -32,3 +32,31 @@ fun creerPartieEnLigne(
         .addOnSuccessListener { onSucces(code) }
         .addOnFailureListener { e -> onEchec(e) }
 }
+
+fun rejoindrePartieEnLigne(
+    code: String,
+    nomJoueur: String,
+    onSucces: () -> Unit,
+    onEchec: (Exception) -> Unit
+) {
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
+    val uid = auth.currentUser?.uid ?: return
+
+    val refPartie = db.collection("parties").document(code)
+
+    refPartie.get()
+        .addOnSuccessListener { document ->
+            if (!document.exists()) {
+                onEchec(Exception("Cette partie n'existe pas"))
+                return@addOnSuccessListener
+            }
+
+            val nouveauJoueur = mapOf("uid" to uid, "nom" to nomJoueur, "score" to 0)
+
+            refPartie.update("joueurs", com.google.firebase.firestore.FieldValue.arrayUnion(nouveauJoueur))
+                .addOnSuccessListener { onSucces() }
+                .addOnFailureListener { e -> onEchec(e) }
+        }
+        .addOnFailureListener { e -> onEchec(e) }
+}

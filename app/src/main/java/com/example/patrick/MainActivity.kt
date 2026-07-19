@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.patrick.data.creerPartieEnLigne
+import com.example.patrick.data.rejoindrePartieEnLigne
 import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.jouerTourBot
@@ -79,9 +80,20 @@ class MainActivity : ComponentActivity() {
         auth.signInAnonymously()
             .addOnSuccessListener {
                 creerPartieEnLigne(
-                    nomJoueur = "TestJoueur",
+                    nomJoueur = "Hote",
                     onSucces = { code ->
-                        Log.d("FIREBASE_TEST", "Partie créée avec le code : $code")
+                        Log.d("FIREBASE_TEST", "Partie créée : $code")
+
+                        rejoindrePartieEnLigne(
+                            code = code,
+                            nomJoueur = "Invite",
+                            onSucces = {
+                                Log.d("FIREBASE_TEST", "Rejoint avec succès la partie $code")
+                            },
+                            onEchec = { e ->
+                                Log.e("FIREBASE_TEST", "Erreur pour rejoindre", e)
+                            }
+                        )
                     },
                     onEchec = { e ->
                         Log.e("FIREBASE_TEST", "Erreur création partie", e)
