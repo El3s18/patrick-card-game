@@ -56,6 +56,7 @@ import com.example.patrick.model.trouverPerdant
 import com.example.patrick.ui.components.AnimationCelebration
 import com.example.patrick.ui.components.DosDeCarteVisuelle
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
+import com.example.patrick.ui.screens.EcranLobbyEnLigne
 import com.example.patrick.ui.screens.EcranMenuPrincipal
 import com.example.patrick.ui.screens.EcranRegles
 import com.example.patrick.ui.theme.CremeCarteFond
@@ -71,6 +72,7 @@ enum class Ecran {
     MENU_PRINCIPAL,
     CHOIX_NOMBRE_JOUEURS,
     REGLES,
+    LOBBY_EN_LIGNE,
     JEU
 }
 class MainActivity : ComponentActivity() {
@@ -117,6 +119,8 @@ class MainActivity : ComponentActivity() {
                                 modeContreIA = false
                                 ecranActuel = Ecran.CHOIX_NOMBRE_JOUEURS
                             } ,
+                            onJouerEnLigne = {
+                                ecranActuel = Ecran.LOBBY_EN_LIGNE },
                             onVoirRegles = {
                                 ecranActuel = Ecran.REGLES
                             }
@@ -132,6 +136,15 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
                             contreIA = modeContreIA,
+                        )
+                        Ecran.LOBBY_EN_LIGNE -> EcranLobbyEnLigne(
+                            onPartieCreee = { code, nom ->
+                                // on connectera ça à l'écran de salle d'attente juste après
+                            },
+                            onPartieRejointe = { code, nom ->
+                                // pareil
+                            },
+                            onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
                     }
                 }
@@ -348,181 +361,181 @@ fun EcranDeTest(
                     }
                 }
             } else if (partieTerminee) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Partie terminée !",
-                            fontSize = 28.sp,
-                            color = CremeCarteFond,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = message, fontSize = 16.sp, color = CremeCarteFond)
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Button(onClick = { recommencerPartie() }) {
-                            Text("Rejouer")
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { onRetourMenu() }) {
-                            Text("Retour au menu")
-                        }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Partie terminée !",
+                        fontSize = 28.sp,
+                        color = CremeCarteFond,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(text = message, fontSize = 16.sp, color = CremeCarteFond)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(onClick = { recommencerPartie() }) {
+                        Text("Rejouer")
                     }
-                } else if (enTransition) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Au tour de ${joueurActif.nom}",
-                            fontSize = 24.sp,
-                            color = CremeCarteFond
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { enTransition = false }) {
-                            Text("Je suis prêt")
-                        }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = { onRetourMenu() }) {
+                        Text("Retour au menu")
                     }
-                } else {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        for (j in joueurs) {
-                            if (j != joueurActif) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = j.nom, color = CremeCarteFond, fontSize = 12.sp)
-                                    Text(
-                                        text = "Score : ${j.score}",
-                                        color = OrAccent,
-                                        fontSize = 11.sp
-                                    )
-                                    Box {
-                                        DosDeCarteVisuelle()
-                                        Text(
-                                            text = "${j.main.size}",
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            modifier = Modifier
-                                                .align(Alignment.BottomEnd)
-                                                .background(
-                                                    NoirCarte,
-                                                    shape = RoundedCornerShape(50)
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                        }
+                }
+            } else if (enTransition) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Au tour de ${joueurActif.nom}",
+                        fontSize = 24.sp,
+                        color = CremeCarteFond
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { enTransition = false }) {
+                        Text("Je suis prêt")
                     }
-
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        val carteDispo = carteDisponiblePourPioche
-                        if (carteDispo != null) {
-                            CarteVisuelle(
-                                carte = carteDispo,
-                                selectionnee = false,
-                                onClick = { if (!aPioche && !partieTerminee) jouerEtPiocherPuis(true) }
-                            )
-                        } else {
-                            Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
-                        }
-
-                        Spacer(modifier = Modifier.width(24.dp))
-
-                        DosDeCarteVisuelle(onClick = {
-                            if (!aPioche && !partieTerminee) jouerEtPiocherPuis(
-                                false
-                            )
-                        })
-                    }
-
-                    Column {
-                        Text(
-                            text = "${joueurActif.nom} — Score : ${joueurActif.score}",
-                            color = OrAccent,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            for (carte in joueurActif.main) {
-                                CarteVisuelle(
-                                    carte = carte,
-                                    selectionnee = selection.contains(carte),
-                                    onClick = { toggleSelection(carte) }
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    for (j in joueurs) {
+                        if (j != joueurActif) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = j.nom, color = CremeCarteFond, fontSize = 12.sp)
+                                Text(
+                                    text = "Score : ${j.score}",
+                                    color = OrAccent,
+                                    fontSize = 11.sp
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (!aPioche && !partieTerminee && calculerScoreMain(joueurActif.main) <= 11) {
-                                Button(
-                                    onClick = { gererFinDeManche(joueurActif) },
-                                    shape = RoundedCornerShape(50),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
+                                Box {
+                                    DosDeCarteVisuelle()
+                                    Text(
+                                        text = "${j.main.size}",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
                                         modifier = Modifier
-                                            .fillMaxHeight()
+                                            .align(Alignment.BottomEnd)
                                             .background(
-                                                brush = Brush.horizontalGradient(
-                                                    listOf(
-                                                        OrAccent,
-                                                        RougeCarte
-                                                    )
-                                                ),
+                                                NoirCarte,
                                                 shape = RoundedCornerShape(50)
                                             )
-                                            .padding(horizontal = 24.dp)
-                                    ) {
-                                        Text(
-                                            text = "🔥 PATRICK !",
-                                            color = Color.White,
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
                                 }
                             }
-                        }
-                    }
-
-                    if (aPioche && !contreIA) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = { aPioche = false; passerAuJoueurSuivant() }) {
-                            Text("Suivant")
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val carteDispo = carteDisponiblePourPioche
+                    if (carteDispo != null) {
+                        CarteVisuelle(
+                            carte = carteDispo,
+                            selectionnee = false,
+                            onClick = { if (!aPioche && !partieTerminee) jouerEtPiocherPuis(true) }
+                        )
+                    } else {
+                        Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    DosDeCarteVisuelle(onClick = {
+                        if (!aPioche && !partieTerminee) jouerEtPiocherPuis(
+                            false
+                        )
+                    })
+                }
+
+                Column {
+                    Text(
+                        text = "${joueurActif.nom} — Score : ${joueurActif.score}",
+                        color = OrAccent,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        for (carte in joueurActif.main) {
+                            CarteVisuelle(
+                                carte = carte,
+                                selectionnee = selection.contains(carte),
+                                onClick = { toggleSelection(carte) }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (!aPioche && !partieTerminee && calculerScoreMain(joueurActif.main) <= 11) {
+                            Button(
+                                onClick = { gererFinDeManche(joueurActif) },
+                                shape = RoundedCornerShape(50),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .background(
+                                            brush = Brush.horizontalGradient(
+                                                listOf(
+                                                    OrAccent,
+                                                    RougeCarte
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(50)
+                                        )
+                                        .padding(horizontal = 24.dp)
+                                ) {
+                                    Text(
+                                        text = "🔥 PATRICK !",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (aPioche && !contreIA) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = { aPioche = false; passerAuJoueurSuivant() }) {
+                        Text("Suivant")
+                    }
+                }
             }
-            AnimationCelebration(
-                visible = afficherCelebration,
-                onFini = { afficherCelebration = false }
-            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
         }
+        AnimationCelebration(
+            visible = afficherCelebration,
+            onFini = { afficherCelebration = false }
+        )
     }
+}

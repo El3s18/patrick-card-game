@@ -37,6 +37,7 @@ import com.example.patrick.ui.theme.VertTapis
 fun EcranMenuPrincipal(
     onJouerContreIA: () -> Unit,
     onJouerEnLocal: () -> Unit,
+    onJouerEnLigne: () -> Unit,
     onVoirRegles: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -57,6 +58,8 @@ fun EcranMenuPrincipal(
             BoutonMenu(texte = "🤖 Jouer contre l'IA", onClick = onJouerContreIA)
             Spacer(modifier = Modifier.height(16.dp))
             BoutonMenu(texte = "👥 Jouer en local", onClick = onJouerEnLocal)
+            Spacer(modifier = Modifier.height(16.dp))
+            BoutonMenu(texte = "🌐 Jouer en ligne", onClick = onJouerEnLigne)
             Spacer(modifier = Modifier.height(16.dp))
             BoutonMenu(texte = "📖 Règles du jeu", onClick = onVoirRegles)
             Spacer(modifier = Modifier.height(48.dp))
