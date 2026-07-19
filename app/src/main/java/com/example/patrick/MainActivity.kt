@@ -2,6 +2,7 @@ package com.example.patrick
 
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -60,6 +61,9 @@ import com.example.patrick.ui.theme.NoirCarte
 import com.example.patrick.ui.theme.OrAccent
 import com.example.patrick.ui.theme.RougeCarte
 import com.example.patrick.ui.theme.VertTapis
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 enum class Ecran {
     MENU_PRINCIPAL,
@@ -70,6 +74,27 @@ enum class Ecran {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
+        val auth = FirebaseAuth.getInstance()
+        auth.signInAnonymously()
+            .addOnSuccessListener {
+                val userId = auth.currentUser?.uid
+                Log.d("FIREBASE_TEST", "Connexion anonyme réussie ! UID: $userId")
+
+                val db = FirebaseFirestore.getInstance()
+                val testData = hashMapOf("message" to "Bonjour depuis Patrick !", "timestamp" to System.currentTimeMillis())
+
+                db.collection("test").document("premier_test").set(testData)
+                    .addOnSuccessListener {
+                        Log.d("FIREBASE_TEST", "Écriture Firestore réussie !")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("FIREBASE_TEST", "Erreur d'écriture Firestore", e)
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("FIREBASE_TEST", "Erreur de connexion anonyme", e)
+            }
         setContent {
             PatrickTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
