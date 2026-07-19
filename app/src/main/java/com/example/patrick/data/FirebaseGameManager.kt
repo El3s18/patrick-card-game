@@ -7,6 +7,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.example.patrick.model.Carte
 import com.example.patrick.model.Famille
 import com.example.patrick.model.Valeur
+import com.example.patrick.model.estUneCombinaisonValide
+
 fun genererCodePartie(): String {
     val caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     return (1..4).map { caracteres.random() }.joinToString("")
@@ -196,4 +198,96 @@ fun ecouterMaMain(
 
             onMiseAJour(main)
         }
+}
+
+fun jouerCombinaisonEnLigne(
+    code: String,
+    maMainActuelle: List<Carte>,
+    bourrerActuel: List<Carte>,
+    selection: List<Carte>,
+    onSucces: () -> Unit,
+    onEchec: (String) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+    val estValide = estUneCombinaisonValide(selection) || selection.size == 1
+
+    if (!estValide) {
+        onEchec("Sélection invalide")
+        return
+    }
+
+    val nouvelleMain = maMainActuelle.toMutableList()
+    nouvelleMain.removeAll(selection)
+
+    val nouveauBourrer = bourrerActuel + selection
+
+    val refPartie = db.collection("parties").document(code)
+    val refMain = refPartie.collection("mains").document(uid)
+
+    refMain.update("cartes", nouvelleMain.map { carteVersMap(it) })
+        .addOnSuccessListener {
+            refPartie.update("bourrer", nouveauBourrer.map { carteVersMap(it) })
+                .addOnSuccessListener { onSucces() }
+                .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+        }
+        .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+}
+
+fun piocherEtPasserAuSuivantEnLigne(
+    code: String,
+    maMainActuelle: List<Carte>,
+    canaillouActuel: List<Carte>,
+    bourrerActuel: List<Carte>,
+    indexJoueurActifActuel: Int,
+    nombreDeJoueurs: Int,
+    pileEstBourrer: Boolean,
+    onSucces: () -> Unit,
+    onEchec: (String) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+    val carte: Carte
+    val nouveauCanaillou: List<Carte>
+    val nouveauBourrer: List<Carte>
+
+    if (pileEstBourrer) {
+        if (bourrerActuel.isEmpty()) {
+            onEchec("Le bourrer est vide")
+            return
+        }
+        carte = bourrerActuel.last()
+        nouveauCanaillou = canaillouActuel
+        nouveauBourrer = bourrerActuel.dropLast(1)
+    } else {
+        if (canaillouActuel.isEmpty()) {
+            onEchec("Le canaillou est vide")
+            return
+        }
+        carte = canaillouActuel.first()
+        nouveauCanaillou = canaillouActuel.drop(1)
+        nouveauBourrer = bourrerActuel
+    }
+
+    val nouvelleMain = maMainActuelle + carte
+    val nouvelIndex = (indexJoueurActifActuel + 1) % nombreDeJoueurs
+
+    val refPartie = db.collection("parties").document(code)
+    val refMain = refPartie.collection("mains").document(uid)
+
+    refMain.update("cartes", nouvelleMain.map { carteVersMap(it) })
+        .addOnSuccessListener {
+            refPartie.update(
+                mapOf(
+                    "canaillou" to nouveauCanaillou.map { carteVersMap(it) },
+                    "bourrer" to nouveauBourrer.map { carteVersMap(it) },
+                    "indexJoueurActif" to nouvelIndex
+                )
+            )
+                .addOnSuccessListener { onSucces() }
+                .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+        }
+        .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
 }
