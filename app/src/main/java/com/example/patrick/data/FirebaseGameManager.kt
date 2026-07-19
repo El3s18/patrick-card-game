@@ -60,3 +60,41 @@ fun rejoindrePartieEnLigne(
         }
         .addOnFailureListener { e -> onEchec(e) }
 }
+data class JoueurEnLigne(val uid: String = "", val nom: String = "", val score: Int = 0)
+
+data class PartieEnLigne(
+    val joueurs: List<JoueurEnLigne> = emptyList(),
+    val statut: String = "en_attente",
+    val hoteUid: String = ""
+)
+
+fun ecouterPartie(
+    code: String,
+    onMiseAJour: (PartieEnLigne) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("parties").document(code)
+        .addSnapshotListener { snapshot, erreur ->
+            if (erreur != null || snapshot == null || !snapshot.exists()) {
+                return@addSnapshotListener
+            }
+
+            val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: emptyList()
+            val joueurs = joueursRaw.map {
+                JoueurEnLigne(
+                    uid = it["uid"] as? String ?: "",
+                    nom = it["nom"] as? String ?: "",
+                    score = (it["score"] as? Long)?.toInt() ?: 0
+                )
+            }
+
+            val partie = PartieEnLigne(
+                joueurs = joueurs,
+                statut = snapshot.getString("statut") ?: "en_attente",
+                hoteUid = snapshot.getString("hoteUid") ?: ""
+            )
+
+            onMiseAJour(partie)
+        }
+}

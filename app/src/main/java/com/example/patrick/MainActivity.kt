@@ -59,6 +59,7 @@ import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
 import com.example.patrick.ui.screens.EcranLobbyEnLigne
 import com.example.patrick.ui.screens.EcranMenuPrincipal
 import com.example.patrick.ui.screens.EcranRegles
+import com.example.patrick.ui.screens.EcranSalleAttente
 import com.example.patrick.ui.theme.CremeCarteFond
 import com.example.patrick.ui.theme.NoirCarte
 import com.example.patrick.ui.theme.OrAccent
@@ -73,6 +74,7 @@ enum class Ecran {
     CHOIX_NOMBRE_JOUEURS,
     REGLES,
     LOBBY_EN_LIGNE,
+    SALLE_ATTENTE,
     JEU
 }
 class MainActivity : ComponentActivity() {
@@ -108,7 +110,7 @@ class MainActivity : ComponentActivity() {
                     var ecranActuel by remember { mutableStateOf(Ecran.MENU_PRINCIPAL) }
                     var nomsJoueursChoisis by remember { mutableStateOf(listOf<String>()) }
                     var modeContreIA by remember { mutableStateOf(true) }
-
+                    var codePartieEnLigne by remember { mutableStateOf("") }
                     when (ecranActuel) {
                         Ecran.MENU_PRINCIPAL -> EcranMenuPrincipal(
                             onJouerContreIA = {
@@ -139,10 +141,19 @@ class MainActivity : ComponentActivity() {
                         )
                         Ecran.LOBBY_EN_LIGNE -> EcranLobbyEnLigne(
                             onPartieCreee = { code, nom ->
-                                // on connectera ça à l'écran de salle d'attente juste après
+                                codePartieEnLigne = code
+                                ecranActuel = Ecran.SALLE_ATTENTE
                             },
                             onPartieRejointe = { code, nom ->
-                                // pareil
+                                codePartieEnLigne = code
+                                ecranActuel = Ecran.SALLE_ATTENTE
+                            },
+                            onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
+                        )
+                        Ecran.SALLE_ATTENTE -> EcranSalleAttente(
+                            code = codePartieEnLigne,
+                            onDemarrer = {
+                                // on branchera le vrai démarrage de partie à l'étape suivante
                             },
                             onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
@@ -184,6 +195,7 @@ fun EcranDeTest(
     var afficherCelebration by remember { mutableStateOf(false) }
     var afficherResume by remember { mutableStateOf(false) }
     var scoresAvant by remember { mutableStateOf(listOf<Int>()) }
+    var codePartieEnLigne by remember { mutableStateOf("") }
 
     val joueurActif = joueurs[indexJoueurActif]
 
@@ -326,7 +338,10 @@ fun EcranDeTest(
     }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = modifier.fillMaxSize().background(VertTapis).padding(16.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .background(VertTapis)
+                .padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             if (afficherResume) {
