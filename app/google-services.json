@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "603008161319",
+    "project_id": "patrick-cardgame-2ccc7",
+    "storage_bucket": "patrick-cardgame-2ccc7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:603008161319:android:f266bac86d2804bb35e002",
+        "android_client_info": {
+          "package_name": "com.example.patrick"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgAirifTGyjbpbQB99qlQuQaFEXz-bIy0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
