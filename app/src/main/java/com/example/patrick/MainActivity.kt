@@ -155,6 +155,9 @@ class MainActivity : ComponentActivity() {
                             onDemarrer = {
                                 // on branchera le vrai démarrage de partie à l'étape suivante
                             },
+                            onPartieDemarree = {
+                                ecranActuel = Ecran.JEU
+                            },
                             onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
                     }

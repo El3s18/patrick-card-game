@@ -25,11 +25,13 @@ import com.example.patrick.ui.theme.VertTapis
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.example.patrick.data.demarrerPartieEnLigne
 
 @Composable
 fun EcranSalleAttente(
     code: String,
     onDemarrer: () -> Unit,
+    onPartieDemarree: () -> Unit,
     onRetour: () -> Unit
 ) {
     var partie by remember { mutableStateOf(PartieEnLigne()) }
@@ -38,6 +40,12 @@ fun EcranSalleAttente(
     LaunchedEffect(code) {
         ecouterPartie(code) { partieMiseAJour ->
             partie = partieMiseAJour
+        }
+    }
+
+    LaunchedEffect(partie.statut) {
+        if (partie.statut == "en_cours") {
+            onPartieDemarree()
         }
     }
 
@@ -68,7 +76,14 @@ fun EcranSalleAttente(
         Spacer(modifier = Modifier.height(32.dp))
 
         if (monUid == partie.hoteUid) {
-            BoutonMenu(texte = "Démarrer la partie", onClick = onDemarrer)
+            BoutonMenu(texte = "Démarrer la partie", onClick = {
+                demarrerPartieEnLigne(
+                    code = code,
+                    joueurs = partie.joueurs,
+                    onSucces = { },
+                    onEchec = { }
+            )
+            })
         } else {
             Text(text = "En attente que l'hôte démarre...", fontSize = 14.sp, color = CremeCarteFond)
         }

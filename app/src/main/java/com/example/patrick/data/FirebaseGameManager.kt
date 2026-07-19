@@ -1,5 +1,7 @@
 package com.example.patrick.data
 
+import com.example.patrick.model.melangerPaquet
+import com.example.patrick.ui.screens.BoutonMenu
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -97,4 +99,53 @@ fun ecouterPartie(
 
             onMiseAJour(partie)
         }
+}
+
+fun demarrerPartieEnLigne(
+    code: String,
+    joueurs: List<JoueurEnLigne>,
+    onSucces: () -> Unit,
+    onEchec: (Exception) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    val paquet = melangerPaquet().toMutableList()
+
+    val mains = mutableMapOf<String, List<Map<String, String>>>()
+    for (joueur in joueurs) {
+        val main = mutableListOf<Map<String, String>>()
+        repeat(5) {
+            val carte = paquet.removeAt(0)
+            main.add(mapOf("famille" to carte.famille.name, "valeur" to carte.valeur.name))
+        }
+        mains[joueur.uid] = main
+    }
+
+    val paquetRestant = paquet.map { mapOf("famille" to it.famille.name, "valeur" to it.valeur.name) }
+
+    val refPartie = db.collection("parties").document(code)
+
+    refPartie.update(
+        mapOf(
+            "statut" to "en_cours",
+            "canaillou" to paquetRestant,
+            "bourrer" to emptyList<Map<String, String>>(),
+            "indexJoueurActif" to 0
+        )
+    ).addOnSuccessListener {
+        var compteur = 0
+        var erreurSurvenue = false
+
+        for ((uid, main) in mains) {
+            refPartie.collection("mains").document(uid)
+                .set(mapOf("cartes" to main))
+                .addOnSuccessListener {
+                    compteur++
+                    if (compteur == mains.size && !erreurSurvenue) onSucces()
+                }
+                .addOnFailureListener { e ->
+                    erreurSurvenue = true
+                    onEchec(e)
+                }
+        }
+    }.addOnFailureListener { e -> onEchec(e) }
 }
