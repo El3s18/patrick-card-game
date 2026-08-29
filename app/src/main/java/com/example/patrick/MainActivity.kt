@@ -55,6 +55,7 @@ import com.example.patrick.model.trouverGagnant
 import com.example.patrick.model.trouverPerdant
 import com.example.patrick.ui.components.AnimationCelebration
 import com.example.patrick.ui.components.DosDeCarteVisuelle
+import com.example.patrick.ui.components.PileDosDeCarteVisuelle
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
 import com.example.patrick.ui.screens.EcranDeJeuEnLigne
 import com.example.patrick.ui.screens.EcranLobbyEnLigne
@@ -442,21 +443,7 @@ fun EcranDeTest(
                                     color = OrAccent,
                                     fontSize = 11.sp
                                 )
-                                Box {
-                                    DosDeCarteVisuelle()
-                                    Text(
-                                        text = "${j.main.size}",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .background(
-                                                NoirCarte,
-                                                shape = RoundedCornerShape(50)
-                                            )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
+                                PileDosDeCarteVisuelle(nombreCartes = j.main.size)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                         }
@@ -566,5 +553,17 @@ fun EcranDeTest(
             visible = afficherCelebration,
             onFini = { afficherCelebration = false }
         )
+    }
+}
+
+fun mettreAJourNombreCartesEnLigne(code: String, uid: String, nombre: Int) {
+    val db = FirebaseFirestore.getInstance()
+    val refPartie = db.collection("parties").document(code)
+    refPartie.get().addOnSuccessListener { snapshot ->
+        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: return@addOnSuccessListener
+        val nouveauxJoueurs = joueursRaw.map { j ->
+            if (j["uid"] == uid) j.toMutableMap().apply { this["nbCartes"] = nombre } else j
+        }
+        refPartie.update("joueurs", nouveauxJoueurs)
     }
 }

@@ -43,6 +43,9 @@ import com.example.patrick.ui.theme.OrAccent
 import com.example.patrick.ui.theme.VertTapis
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.patrick.data.recupererToutesLesMainsEnLigne
+import com.example.patrick.mettreAJourNombreCartesEnLigne
+import com.example.patrick.ui.components.PileDosDeCarteVisuelle
 
 
 @Composable
@@ -57,6 +60,7 @@ fun EcranDeJeuEnLigne(
     var afficherResume by remember { mutableStateOf(false) }
     var scoresAvant by remember { mutableStateOf(mapOf<String, Int>()) }
     val monUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var mainsReveleees by remember { mutableStateOf(mapOf<String, List<Carte>>()) }
 
     LaunchedEffect(code) {
         ecouterPartie(code) { partieMiseAJour -> partie = partieMiseAJour }
@@ -68,15 +72,50 @@ fun EcranDeJeuEnLigne(
         if (partie.statut == "revelation") {
             scoresAvant = partie.joueurs.associate { it.uid to it.score }
             afficherResume = true
+            recupererToutesLesMainsEnLigne(code, partie.joueurs) { mains ->
+                mainsReveleees = mains
+            }
             if (monUid == partie.hoteUid) {
                 calculerScoresApresRevelationEnLigne(
                     code = code,
                     joueurs = partie.joueurs,
                     uidQuiCrie = partie.quiCrie,
-                    onSucces = { /* inchangé */ },
+                    onSucces = { perdantUid ->
+                        val db = FirebaseFirestore.getInstance()
+                        val refPartie = db.collection("parties").document(code)
+                        if (perdantUid != null) {
+                            refPartie.update("statut", "terminee")
+                        } else {
+                            val nouveauPaquet = melangerPaquet().toMutableList()
+                            val mains = mutableMapOf<String, List<Map<String, String>>>()
+                            for (j in partie.joueurs) {
+                                val main = mutableListOf<Map<String, String>>()
+                                repeat(5) {
+                                    val carte = nouveauPaquet.removeAt(0)
+                                    mains[j.uid] = (mains[j.uid] ?: emptyList()) + carteVersMap(carte)
+                                }
+                            }
+                            refPartie.update(
+                                mapOf(
+                                    "statut" to "en_cours",
+                                    "canaillou" to nouveauPaquet.map { carteVersMap(it) },
+                                    "bourrer" to emptyList<Map<String, String>>(),
+                                    "indexJoueurActif" to 0
+                                )
+                            )
+                            for ((uid, main) in mains) {
+                                refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
+                            }
+                        }
+                    },
                     onEchec = { }
                 )
             }
+        }
+    }
+    LaunchedEffect(maMain.size) {
+        if (maMain.isNotEmpty()) {
+            mettreAJourNombreCartesEnLigne(code, monUid, maMain.size)
         }
     }
 
@@ -158,6 +197,7 @@ fun EcranDeJeuEnLigne(
                     if (j.uid != monUid) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = j.nom, color = CremeCarteFond, fontSize = 12.sp)
+                            PileDosDeCarteVisuelle(nombreCartes = j.nbCartes)
                             Text(text = "Score : ${j.score}", color = OrAccent, fontSize = 11.sp)
                         }
                         Spacer(modifier = Modifier.width(8.dp))

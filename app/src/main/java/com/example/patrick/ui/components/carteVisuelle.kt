@@ -14,7 +14,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
 import com.example.patrick.model.Famille
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -93,4 +95,19 @@ fun DosDeCarteVisuelle(onClick: () -> Unit = {}) {
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
     )
+}
+
+@Composable
+fun PileDosDeCarteVisuelle(nombreCartes: Int) {
+    Box(
+        modifier = Modifier
+            .width((70 + (nombreCartes - 1).coerceAtLeast(0) * 14).dp)
+            .height(100.dp)
+    ) {
+        for (i in 0 until nombreCartes) {
+            Box(modifier = Modifier.offset(x = (i * 14).dp)) {
+                DosDeCarteVisuelle()
+            }
+        }
+    }
 }

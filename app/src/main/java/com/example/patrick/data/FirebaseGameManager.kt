@@ -67,7 +67,7 @@ fun rejoindrePartieEnLigne(
         }
         .addOnFailureListener { e -> onEchec(e) }
 }
-data class JoueurEnLigne(val uid: String = "", val nom: String = "", val score: Int = 0)
+data class JoueurEnLigne(val uid: String = "", val nom: String = "", val score: Int = 0, val nbCartes: Int = 5)
 
 data class PartieEnLigne(
     val joueurs: List<JoueurEnLigne> = emptyList(),
@@ -96,7 +96,8 @@ fun ecouterPartie(
                 JoueurEnLigne(
                     uid = it["uid"] as? String ?: "",
                     nom = it["nom"] as? String ?: "",
-                    score = (it["score"] as? Long)?.toInt() ?: 0
+                    score = (it["score"] as? Long)?.toInt() ?: 0,
+                    nbCartes = (it["nbCartes"] as? Long)?.toInt() ?: 5
                 )
             }
 
@@ -358,5 +359,35 @@ fun calculerScoresApresRevelationEnLigne(
                 }
             }
             .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+    }
+}
+
+fun recupererToutesLesMainsEnLigne(
+    code: String,
+    joueurs: List<JoueurEnLigne>,
+    onResultat: (Map<String, List<Carte>>) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    val refPartie = db.collection("parties").document(code)
+
+    val resultats = mutableMapOf<String, List<Carte>>()
+    var compteur = 0
+
+    for (joueur in joueurs) {
+        refPartie.collection("mains").document(joueur.uid).get()
+            .addOnSuccessListener { snapshot ->
+                val cartesRaw = snapshot.get("cartes") as? List<Map<String, Any>> ?: emptyList()
+                resultats[joueur.uid] = cartesRaw.map { mapVersCarte(it) }
+                compteur++
+                if (compteur == joueurs.size) {
+                    onResultat(resultats)
+                }
+            }
+            .addOnFailureListener {
+                compteur++
+                if (compteur == joueurs.size) {
+                    onResultat(resultats)
+                }
+            }
     }
 }
