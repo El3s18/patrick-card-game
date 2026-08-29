@@ -7,12 +7,14 @@ fun terminerManche(partie: Partie, joueurQuiCrie: Joueur) {
     }
 
     if (joueursAvecMoins.isEmpty()) {
-        // Personne n'a moins : tout le monde marque sa propre main
+        // Personne n'a moins : l'appelant ne marque RIEN, les autres marquent leur main
         for (joueur in partie.joueurs) {
-            joueur.score += calculerScoreMain(joueur.main)
+            if (joueur != joueurQuiCrie) {
+                joueur.score += calculerScoreMain(joueur.main)
+            }
         }
     } else {
-        // Quelqu'un a moins : seul l'appelant marque, avec bonus
+        // Quelqu'un a moins : seul l'appelant marque, avec bonus (inchangé)
         joueurQuiCrie.score += scoreAppelant + 10 * joueursAvecMoins.size
     }
 }

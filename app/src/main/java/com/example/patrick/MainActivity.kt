@@ -31,14 +31,18 @@ import com.example.patrick.ui.components.CarteVisuelle
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import com.example.patrick.model.Joueur
 import com.example.patrick.model.Partie
 import com.example.patrick.model.defausserCombinaison
 import com.example.patrick.model.defausserCarteUnique
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -208,7 +212,7 @@ fun EcranDeTest(
     var partieTerminee by remember { mutableStateOf(false) }
     var afficherCelebration by remember { mutableStateOf(false) }
     var afficherResume by remember { mutableStateOf(false) }
-    var scoresAvant by remember { mutableStateOf(listOf<Int>()) }
+    var historiqueScores by remember { mutableStateOf(listOf<List<Int>>()) }
     var codePartieEnLigne by remember { mutableStateOf("") }
     var modeEnLigne by remember { mutableStateOf(false) }
 
@@ -249,14 +253,16 @@ fun EcranDeTest(
         partieTerminee = false
         enTransition = !contreIA
         message = "Nouvelle partie !"
+        historiqueScores = listOf()
+
     }
 
     fun gererFinDeManche(quiCrie: Joueur) {
         afficherCelebration = true
-        scoresAvant = joueurs.map { it.score }
         val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
         terminerManche(partie, quiCrie)
         joueurs = joueurs.toMutableList()
+        historiqueScores = historiqueScores + listOf(joueurs.map { it.score })
 
         val perdant = trouverPerdant(partie)
         if (perdant != null) {
@@ -365,28 +371,39 @@ fun EcranDeTest(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Fin de manche !",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = OrAccent
-                    )
+                    Text(text = "Fin de manche !", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = OrAccent)
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    for (i in joueurs.indices) {
-                        val j = joueurs[i]
-                        val avant = scoresAvant.getOrElse(i) { 0 }
-                        Text(
-                            text = "${j.nom} : $avant → ${j.score}",
-                            fontSize = 18.sp,
-                            color = CremeCarteFond,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column(modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text(text = "Manche", fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(0.6f))
+                                for (j in joueurs) {
+                                    Text(text = j.nom, fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(1f))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(color = NoirCarte)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            for ((index, scoresManche) in historiqueScores.withIndex()) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    Text(text = "${index + 1}", color = NoirCarte, modifier = Modifier.weight(0.6f))
+                                    for (score in scoresManche) {
+                                        Text(text = "$score", color = NoirCarte, modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = { demarrerNouvelleManche() }) {
+                    Button(onClick = { afficherResume = false }) {
                         Text("Suivant")
                     }
                 }

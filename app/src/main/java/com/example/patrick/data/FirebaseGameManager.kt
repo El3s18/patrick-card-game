@@ -342,7 +342,7 @@ fun calculerScoresApresRevelationEnLigne(
 
                     val nouveauxJoueurs = joueurs.map { j ->
                         val ajout = if (joueursAvecMoins.isEmpty()) {
-                            scoresCollectes[j.uid] ?: 0
+                            if (j.uid == uidQuiCrie) 0 else (scoresCollectes[j.uid] ?: 0)
                         } else if (j.uid == uidQuiCrie) {
                             scoreAppelant + 10 * joueursAvecMoins.size
                         } else {
