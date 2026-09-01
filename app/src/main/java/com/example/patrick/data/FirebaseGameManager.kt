@@ -391,3 +391,34 @@ fun recupererToutesLesMainsEnLigne(
             }
     }
 }
+
+fun abandonnerPartieEnLigne(
+    code: String,
+    uid: String,
+    onSucces: () -> Unit,
+    onEchec: (String) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    val refPartie = db.collection("parties").document(code)
+    refPartie.get().addOnSuccessListener { snapshot ->
+        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: emptyList()
+        val nouveauxJoueurs = joueursRaw.map { j ->
+            if (j["uid"] == uid) j.toMutableMap().apply { this["score"] = 111 } else j
+        }
+        refPartie.update(mapOf("joueurs" to nouveauxJoueurs, "statut" to "terminee"))
+            .addOnSuccessListener { onSucces() }
+            .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+    }.addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+}
+
+fun mettreAJourNombreCartesEnLigne(code: String, uid: String, nombre: Int) {
+    val db = FirebaseFirestore.getInstance()
+    val refPartie = db.collection("parties").document(code)
+    refPartie.get().addOnSuccessListener { snapshot ->
+        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: return@addOnSuccessListener
+        val nouveauxJoueurs = joueursRaw.map { j ->
+            if (j["uid"] == uid) j.toMutableMap().apply { this["nbCartes"] = nombre } else j
+        }
+        refPartie.update("joueurs", nouveauxJoueurs)
+    }
+}

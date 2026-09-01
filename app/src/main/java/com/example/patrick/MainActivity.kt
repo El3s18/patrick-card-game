@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.example.patrick.data.abandonnerPartieEnLigne
 import com.example.patrick.data.creerPartieEnLigne
 import com.example.patrick.data.rejoindrePartieEnLigne
 import com.example.patrick.model.calculerScoreMain
@@ -58,7 +59,9 @@ import com.example.patrick.model.terminerManche
 import com.example.patrick.model.trouverGagnant
 import com.example.patrick.model.trouverPerdant
 import com.example.patrick.ui.components.AnimationCelebration
+import com.example.patrick.ui.components.BoutonOvale
 import com.example.patrick.ui.components.DosDeCarteVisuelle
+import com.example.patrick.ui.components.MenuOptionsPartie
 import com.example.patrick.ui.components.PileDosDeCarteVisuelle
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
 import com.example.patrick.ui.screens.EcranDeJeuEnLigne
@@ -71,7 +74,6 @@ import com.example.patrick.ui.theme.NoirCarte
 import com.example.patrick.ui.theme.OrAccent
 import com.example.patrick.ui.theme.RougeCarte
 import com.example.patrick.ui.theme.VertTapis
-import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -86,30 +88,6 @@ enum class Ecran {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val auth = FirebaseAuth.getInstance()
-        auth.signInAnonymously()
-            .addOnSuccessListener {
-                creerPartieEnLigne(
-                    nomJoueur = "Hote",
-                    onSucces = { code ->
-                        Log.d("FIREBASE_TEST", "Partie créée : $code")
-
-                        rejoindrePartieEnLigne(
-                            code = code,
-                            nomJoueur = "Invite",
-                            onSucces = {
-                                Log.d("FIREBASE_TEST", "Rejoint avec succès la partie $code")
-                            },
-                            onEchec = { e ->
-                                Log.e("FIREBASE_TEST", "Erreur pour rejoindre", e)
-                            }
-                        )
-                    },
-                    onEchec = { e ->
-                        Log.e("FIREBASE_TEST", "Erreur création partie", e)
-                    }
-                )
-            }
         setContent {
             PatrickTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -145,13 +123,15 @@ class MainActivity : ComponentActivity() {
                             if (modeEnLigne) {
                                 EcranDeJeuEnLigne(
                                     code = codePartieEnLigne,
-                                    modifier = Modifier.padding(innerPadding)
+                                    modifier = Modifier.padding(innerPadding),
+                                    onRetourMenu = { ecranActuel = Ecran.MENU_PRINCIPAL; modeEnLigne = false }
                                 )
                             } else {
                                 EcranDeTest(
                                     modifier = Modifier.padding(innerPadding),
                                     nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
                                     contreIA = modeContreIA,
+                                    onRetourMenu = { ecranActuel = Ecran.MENU_PRINCIPAL }
                                 )
                             }
                         }
@@ -187,7 +167,8 @@ fun EcranDeTest(
     modifier: Modifier = Modifier,
     nomsJoueurs: List<String> = listOf("Moi"),
     contreIA: Boolean = true,
-    onRetourMenu: () -> Unit = {}
+    onRetourMenu: () -> Unit = {},
+
 ) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
     var joueurs by remember {
@@ -357,12 +338,16 @@ fun EcranDeTest(
             aPioche = true
         }
     }
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        fun abandonnerLaPartie() {
+            joueurActif.score = 111
+            joueurs = joueurs.toMutableList()
+            val gagnant = joueurs.filter { it != joueurActif }.minByOrNull { it.score }
+            message = "${joueurActif.nom} a abandonné. ${gagnant?.nom ?: ""} gagne !"
+            partieTerminee = true
+        }
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .background(VertTapis)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().background(VertTapis).padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             if (afficherResume) {
@@ -403,9 +388,7 @@ fun EcranDeTest(
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = { afficherResume = false }) {
-                        Text("Suivant")
-                    }
+                    BoutonOvale(texte = "Suivant", onClick = { afficherResume = false })
                 }
             } else if (partieTerminee) {
                 Column(
@@ -422,13 +405,9 @@ fun EcranDeTest(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = message, fontSize = 16.sp, color = CremeCarteFond)
                     Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = { recommencerPartie() }) {
-                        Text("Rejouer")
-                    }
+                    BoutonOvale(texte = "Rejouer", onClick = { recommencerPartie() })
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { onRetourMenu() }) {
-                        Text("Retour au menu")
-                    }
+                    BoutonOvale(texte = "Retour au menu", onClick = onRetourMenu, couleur = NoirCarte)
                 }
             } else if (enTransition) {
                 Column(
@@ -442,9 +421,7 @@ fun EcranDeTest(
                         color = CremeCarteFond
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { enTransition = false }) {
-                        Text("Je suis prêt")
-                    }
+                    BoutonOvale(texte = "Je suis prêt", onClick = { enTransition = false })
                 }
             } else {
                 Row(
@@ -557,30 +534,30 @@ fun EcranDeTest(
 
                 if (aPioche && !contreIA) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { aPioche = false; passerAuJoueurSuivant() }) {
-                        Text("Suivant")
-                    }
+                    BoutonOvale(texte = "Suivant", onClick = { aPioche = false; passerAuJoueurSuivant() })
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
         }
+
         AnimationCelebration(
             visible = afficherCelebration,
             onFini = { afficherCelebration = false }
         )
+        MenuOptionsPartie(
+            onAbandonner = { abandonnerLaPartie() },
+            onRetourMenu = onRetourMenu,
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+        )
+    }
+    fun abandonnerLaPartie() {
+        joueurActif.score = 111
+        joueurs = joueurs.toMutableList()
+        val gagnant = joueurs.filter { it != joueurActif }.minByOrNull { it.score }
+        message = "${joueurActif.nom} a abandonné. ${gagnant?.nom ?: ""} gagne !"
+        partieTerminee = true
     }
 }
 
-fun mettreAJourNombreCartesEnLigne(code: String, uid: String, nombre: Int) {
-    val db = FirebaseFirestore.getInstance()
-    val refPartie = db.collection("parties").document(code)
-    refPartie.get().addOnSuccessListener { snapshot ->
-        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: return@addOnSuccessListener
-        val nouveauxJoueurs = joueursRaw.map { j ->
-            if (j["uid"] == uid) j.toMutableMap().apply { this["nbCartes"] = nombre } else j
-        }
-        refPartie.update("joueurs", nouveauxJoueurs)
-    }
-}
