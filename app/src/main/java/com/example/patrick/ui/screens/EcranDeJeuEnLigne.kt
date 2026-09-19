@@ -1,6 +1,7 @@
 package com.example.patrick.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,10 +10,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,8 +52,10 @@ import com.example.patrick.ui.theme.VertTapis
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.patrick.data.recupererToutesLesMainsEnLigne
+import com.example.patrick.ui.components.BoutonOvale
 import com.example.patrick.ui.components.MenuOptionsPartie
 import com.example.patrick.ui.components.PileDosDeCarteVisuelle
+import com.example.patrick.ui.theme.NoirCarte
 
 
 @Composable
@@ -64,6 +72,7 @@ fun EcranDeJeuEnLigne(
     var scoresAvant by remember { mutableStateOf(mapOf<String, Int>()) }
     val monUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     var mainsReveleees by remember { mutableStateOf(mapOf<String, List<Carte>>()) }
+    var historiqueScoresEnLigne by remember { mutableStateOf(listOf<List<Int>>()) }
 
     LaunchedEffect(code) {
         ecouterPartie(code) { partieMiseAJour -> partie = partieMiseAJour }
@@ -83,7 +92,7 @@ fun EcranDeJeuEnLigne(
                     code = code,
                     joueurs = partie.joueurs,
                     uidQuiCrie = partie.quiCrie,
-                    onSucces = { perdantUid ->
+                    onSucces = { perdantUid, uidPerdantManche ->
                         val db = FirebaseFirestore.getInstance()
                         val refPartie = db.collection("parties").document(code)
                         if (perdantUid != null) {
@@ -95,26 +104,29 @@ fun EcranDeJeuEnLigne(
                                 val main = mutableListOf<Map<String, String>>()
                                 repeat(5) {
                                     val carte = nouveauPaquet.removeAt(0)
-                                    mains[j.uid] =
-                                        (mains[j.uid] ?: emptyList()) + carteVersMap(carte)
+                                    mains[j.uid] = (mains[j.uid] ?: emptyList()) + carteVersMap(carte)
                                 }
                             }
+                            val indexPerdant = partie.joueurs.indexOfFirst { it.uid == uidPerdantManche }
+                                .let { if (it == -1) 0 else it }
                             refPartie.update(
                                 mapOf(
                                     "statut" to "en_cours",
                                     "canaillou" to nouveauPaquet.map { carteVersMap(it) },
                                     "bourrer" to emptyList<Map<String, String>>(),
-                                    "indexJoueurActif" to 0
+                                    "indexJoueurActif" to indexPerdant
                                 )
                             )
                             for ((uid, main) in mains) {
-                                refPartie.collection("mains").document(uid)
-                                    .set(mapOf("cartes" to main))
+                                refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
                             }
                         }
                     },
                     onEchec = { }
                 )
+            }
+            else if (partie.statut == "en_cours") {
+                afficherResume = false
             }
         }
     }
@@ -169,31 +181,54 @@ fun EcranDeJeuEnLigne(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             if (afficherResume) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Fin de manche !",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = OrAccent
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    for (j in partie.joueurs) {
-                        val avant = scoresAvant[j.uid] ?: 0
-                        Text(
-                            text = "${j.nom} : $avant → ${j.score}",
-                            fontSize = 18.sp,
-                            color = CremeCarteFond,
-                            fontWeight = FontWeight.Bold
-                        )
+                Box(
+                    modifier = Modifier.fillMaxWidth(0.9f).background(CremeCarteFond, shape = RoundedCornerShape(12.dp)).padding(16.dp)
+                )
+                {
+                    Column(modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(text = "Manche", fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(0.6f))
+                            for (j in partie.joueurs) {
+                                Text(text = j.nom, fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(1f))
+                            }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = NoirCarte)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        for ((index, scoresManche) in (historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })).withIndex()) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Text(text = "${index + 1}", color = NoirCarte, modifier = Modifier.weight(0.6f))
+                                for (score in scoresManche) {
+                                    Text(text = "$score", color = NoirCarte, modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { afficherResume = false }) {
-                        Text("Suivant")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Mains révélées",
+                    fontWeight = FontWeight.Bold,
+                    color = CremeCarteFond,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    for (j in partie.joueurs) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = j.nom, color = OrAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row {
+                                val mainDuJoueur = mainsReveleees[j.uid] ?: emptyList()
+                                for (carte in mainDuJoueur) {
+                                    CarteVisuelle(carte = carte, selectionnee = false, onClick = { })
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                }
+                            }
+                        }
                     }
                 }
             } else {

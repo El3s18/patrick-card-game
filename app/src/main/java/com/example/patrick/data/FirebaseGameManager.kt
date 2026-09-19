@@ -317,7 +317,7 @@ fun calculerScoresApresRevelationEnLigne(
     code: String,
     joueurs: List<JoueurEnLigne>,
     uidQuiCrie: String,
-    onSucces: (perdantUid: String?) -> Unit,
+    onSucces: (perdantFinDePartieUid: String?, uidPerdantManche: String) -> Unit,
     onEchec: (String) -> Unit
 ) {
     val db = FirebaseFirestore.getInstance()
@@ -339,8 +339,7 @@ fun calculerScoresApresRevelationEnLigne(
                     val joueursAvecMoins = joueurs.filter {
                         it.uid != uidQuiCrie && (scoresCollectes[it.uid] ?: 0) < scoreAppelant
                     }
-
-                    val nouveauxJoueurs = joueurs.map { j ->
+                    val ajouts = joueurs.associate { j ->
                         val ajout = if (joueursAvecMoins.isEmpty()) {
                             if (j.uid == uidQuiCrie) 0 else (scoresCollectes[j.uid] ?: 0)
                         } else if (j.uid == uidQuiCrie) {
@@ -348,13 +347,16 @@ fun calculerScoresApresRevelationEnLigne(
                         } else {
                             0
                         }
-                        mapOf("uid" to j.uid, "nom" to j.nom, "score" to (j.score + ajout))
+                        j.uid to ajout
+                    }
+                    val nouveauxJoueurs = joueurs.map { j ->
+                        mapOf("uid" to j.uid, "nom" to j.nom, "score" to (j.score + (ajouts[j.uid] ?: 0)))
                     }
 
+                    val uidPerdantManche = ajouts.maxByOrNull { it.value }?.key ?: uidQuiCrie
                     val perdant = nouveauxJoueurs.find { (it["score"] as Int) >= 111 }
-
                     refPartie.update("joueurs", nouveauxJoueurs)
-                        .addOnSuccessListener { onSucces(perdant?.get("uid") as? String) }
+                        .addOnSuccessListener { onSucces(perdant?.get("uid") as? String, uidPerdantManche) }
                         .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
                 }
             }

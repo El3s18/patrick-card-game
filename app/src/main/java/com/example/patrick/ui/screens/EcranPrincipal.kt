@@ -1,5 +1,6 @@
 package com.example.patrick.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,7 @@ fun EcranMenuPrincipal(
     onJouerEnLigne: () -> Unit,
     onVoirRegles: () -> Unit
 ) {
+    val context = LocalContext.current
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.patrickwallpaper),
@@ -63,7 +66,7 @@ fun EcranMenuPrincipal(
             Spacer(modifier = Modifier.height(16.dp))
             BoutonMenu(texte = "📖 Règles du jeu", onClick = onVoirRegles)
             Spacer(modifier = Modifier.height(48.dp))
-        }
+            BoutonMenu(texte = "❌ Quitter", onClick = { (context as? Activity)?.finish() })        }
     }
 }
 
