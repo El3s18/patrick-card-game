@@ -76,7 +76,9 @@ data class PartieEnLigne(
     val canaillou: List<Carte> = emptyList(),
     val bourrer: List<Carte> = emptyList(),
     val indexJoueurActif: Int = 0,
-    val quiCrie: String = ""
+    val quiCrie: String = "",
+    val joueursPrets: List<String> = emptyList(),
+    val perdantManche: String = ""
 )
 
 fun ecouterPartie(
@@ -106,6 +108,7 @@ fun ecouterPartie(
 
             val bourrerRaw = snapshot.get("bourrer") as? List<Map<String, Any>> ?: emptyList()
             val bourrer = bourrerRaw.map { mapVersCarte(it) }
+            val joueursPretsRaw = snapshot.get("joueursPrets") as? List<String> ?: emptyList()
 
             val partie = PartieEnLigne(
                 joueurs = joueurs,
@@ -114,8 +117,9 @@ fun ecouterPartie(
                 canaillou = canaillou,
                 bourrer = bourrer,
                 indexJoueurActif = (snapshot.getLong("indexJoueurActif"))?.toInt() ?: 0,
-                quiCrie = snapshot.getString("quiCrie") ?: ""
-
+                quiCrie = snapshot.getString("quiCrie") ?: "",
+                joueursPrets = joueursPretsRaw,
+                perdantManche = snapshot.getString("perdantManche") ?: ""
             )
 
             onMiseAJour(partie)
@@ -424,3 +428,18 @@ fun mettreAJourNombreCartesEnLigne(code: String, uid: String, nombre: Int) {
         refPartie.update("joueurs", nouveauxJoueurs)
     }
 }
+
+fun validerMancheSuivante(
+    code: String,
+    uid: String,
+    onSucces: () -> Unit,
+    onEchec: (String) -> Unit
+) {
+    val db = FirebaseFirestore.getInstance()
+    db.collection("parties").document(code)
+        .update("joueursPrets", com.google.firebase.firestore.FieldValue.arrayUnion(uid))
+        .addOnSuccessListener { onSucces() }
+        .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+}
+
+

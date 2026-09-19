@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.patrick.data.JoueurEnLigne
 import com.example.patrick.data.PartieEnLigne
 import com.example.patrick.data.abandonnerPartieEnLigne
 import com.example.patrick.data.calculerScoresApresRevelationEnLigne
@@ -52,6 +54,7 @@ import com.example.patrick.ui.theme.VertTapis
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.patrick.data.recupererToutesLesMainsEnLigne
+import com.example.patrick.data.validerMancheSuivante
 import com.example.patrick.ui.components.BoutonOvale
 import com.example.patrick.ui.components.MenuOptionsPartie
 import com.example.patrick.ui.components.PileDosDeCarteVisuelle
@@ -92,55 +95,98 @@ fun EcranDeJeuEnLigne(
                     code = code,
                     joueurs = partie.joueurs,
                     uidQuiCrie = partie.quiCrie,
-                    onSucces = { perdantUid, uidPerdantManche ->
+                    onSucces = { perdantFinDePartieUid, uidPerdantManche ->
                         val db = FirebaseFirestore.getInstance()
                         val refPartie = db.collection("parties").document(code)
-                        if (perdantUid != null) {
+                        if (perdantFinDePartieUid != null) {
                             refPartie.update("statut", "terminee")
                         } else {
-                            val nouveauPaquet = melangerPaquet().toMutableList()
-                            val mains = mutableMapOf<String, List<Map<String, String>>>()
-                            for (j in partie.joueurs) {
-                                val main = mutableListOf<Map<String, String>>()
-                                repeat(5) {
-                                    val carte = nouveauPaquet.removeAt(0)
-                                    mains[j.uid] = (mains[j.uid] ?: emptyList()) + carteVersMap(carte)
-                                }
-                            }
-                            val indexPerdant = partie.joueurs.indexOfFirst { it.uid == uidPerdantManche }
-                                .let { if (it == -1) 0 else it }
-                            refPartie.update(
-                                mapOf(
-                                    "statut" to "en_cours",
-                                    "canaillou" to nouveauPaquet.map { carteVersMap(it) },
-                                    "bourrer" to emptyList<Map<String, String>>(),
-                                    "indexJoueurActif" to indexPerdant
-                                )
-                            )
-                            for ((uid, main) in mains) {
-                                refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
-                            }
+                            refPartie.update("perdantManche", uidPerdantManche)
                         }
                     },
                     onEchec = { }
                 )
             }
-            else if (partie.statut == "en_cours") {
-                afficherResume = false
+        } else if (partie.statut == "en_cours") {
+            if (afficherResume) {
+                historiqueScoresEnLigne = historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })
             }
+            afficherResume = false
         }
     }
+
     LaunchedEffect(maMain.size) {
         if (maMain.isNotEmpty()) {
             mettreAJourNombreCartesEnLigne(code, monUid, maMain.size)
         }
     }
-
+    LaunchedEffect(partie.joueursPrets) {
+        if (partie.statut == "revelation" &&
+            partie.joueurs.isNotEmpty() &&
+            partie.joueursPrets.size == partie.joueurs.size &&
+            monUid == partie.hoteUid
+        ) {
+            val db = FirebaseFirestore.getInstance()
+            val refPartie = db.collection("parties").document(code)
+            val nouveauPaquet = melangerPaquet().toMutableList()
+            val mains = mutableMapOf<String, List<Map<String, String>>>()
+            for (j in partie.joueurs) {
+                val main = mutableListOf<Map<String, String>>()
+                repeat(5) {
+                    val carte = nouveauPaquet.removeAt(0)
+                    mains[j.uid] = (mains[j.uid] ?: emptyList()) + carteVersMap(carte)
+                }
+            }
+            val indexPerdant = partie.joueurs.indexOfFirst { it.uid == partie.perdantManche }
+                .let { if (it == -1) 0 else it }
+            refPartie.update(
+                mapOf(
+                    "statut" to "en_cours",
+                    "canaillou" to nouveauPaquet.map { carteVersMap(it) },
+                    "bourrer" to emptyList<Map<String, String>>(),
+                    "indexJoueurActif" to indexPerdant,
+                    "joueursPrets" to emptyList<String>(),
+                    "perdantManche" to ""
+                )
+            )
+            for ((uid, main) in mains) {
+                refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
+            }
+        }
+    }
     val moi = partie.joueurs.find { it.uid == monUid }
     val joueurActifUid = partie.joueurs.getOrNull(partie.indexJoueurActif)?.uid
     val cEstMonTour = joueurActifUid == monUid
     val scoreMain = calculerScoreMain(maMain)
     val peutCrierPatrick = cEstMonTour && scoreMain <= 11 && partie.statut == "en_cours"
+    val toutesMainsChargees = partie.joueurs.isNotEmpty() &&
+            partie.joueurs.all { mainsReveleees.containsKey(it.uid) }
+    val nomAppelant = partie.joueurs.find { it.uid == partie.quiCrie }?.nom ?: ""
+    val scoreMainAppelant = calculerScoreMain(mainsReveleees[partie.quiCrie] ?: emptyList())
+    val joueursAvecMoins = if (toutesMainsChargees) {
+        partie.joueurs.filter {
+            it.uid != partie.quiCrie &&
+                    calculerScoreMain(mainsReveleees[it.uid] ?: emptyList()) < scoreMainAppelant
+        }
+    } else emptyList()
+    val patrickReussi = toutesMainsChargees && joueursAvecMoins.isEmpty()
+    val bonusAppelant = scoreMainAppelant + 10 * joueursAvecMoins.size
+
+    val messageResultatPatrick: String = if (!afficherResume || !toutesMainsChargees) {
+        ""
+    } else if (monUid == partie.quiCrie) {
+        when {
+            patrickReussi -> "🎉 Patrick réussi ! Tu ne marques aucun point ce tour."
+            (moi?.score ?: 0) >= 111 -> "💥 Patrick raté, et tu dépasses les 111 points..."
+            else -> "😬 Patrick raté... tu marques $bonusAppelant points."
+        }
+    } else if (patrickReussi) {
+        "Tu marques ${calculerScoreMain(mainsReveleees[monUid] ?: emptyList())} points (Patrick de $nomAppelant)."
+    } else if (joueursAvecMoins.any { it.uid == monUid }) {
+        "Tu avais moins que $nomAppelant, tu ne marques rien !"
+    } else {
+        "Tu ne marques rien sur cette manche."
+    }
 
     fun toggleSelection(carte: Carte) {
         selection = if (selection.contains(carte)) selection - carte else selection + carte
@@ -181,53 +227,122 @@ fun EcranDeJeuEnLigne(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             if (afficherResume) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(0.9f).background(CremeCarteFond, shape = RoundedCornerShape(12.dp)).padding(16.dp)
-                )
-                {
-                    Column(modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text(text = "Manche", fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(0.6f))
-                            for (j in partie.joueurs) {
-                                Text(text = j.nom, fontWeight = FontWeight.Bold, color = NoirCarte, modifier = Modifier.weight(1f))
-                            }
+                val adversaires = partie.joueurs.filter { it.uid != monUid }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Premier adversaire : en haut, centré (face à moi)
+                    adversaires.getOrNull(0)?.let { j ->
+                        Box(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) {
+                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(color = NoirCarte)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        for ((index, scoresManche) in (historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })).withIndex()) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                Text(text = "${index + 1}", color = NoirCarte, modifier = Modifier.weight(0.6f))
-                                for (score in scoresManche) {
-                                    Text(text = "$score", color = NoirCarte, modifier = Modifier.weight(1f))
+                    }
+
+                    // Deuxième adversaire : à droite, centré verticalement
+                    adversaires.getOrNull(1)?.let { j ->
+                        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
+                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
+                        }
+                    }
+
+                    // Troisième adversaire : à gauche, centré verticalement
+                    adversaires.getOrNull(2)?.let { j ->
+                        Box(modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp)) {
+                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
+                        }
+                    }
+
+                    // Tableau des scores : au centre de l'écran
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .padding(horizontal = 5.dp)
+                            .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            // En-tête fixe, ne scroll jamais
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Manche",
+                                    fontWeight = FontWeight.Bold,
+                                    color = NoirCarte,
+                                    maxLines = 1,
+                                    modifier = Modifier.width(70.dp)
+                                )
+                                for (j in partie.joueurs) {
+                                    Text(
+                                        text = j.nom,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NoirCarte,
+                                        maxLines = 1,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(color = NoirCarte)
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Seules les lignes de score scrollent, plafonnées à ~3 lignes visibles
+                            val toutesLesLignes = historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })
+                            Column(
+                                modifier = Modifier
+                                    .heightIn(max = 100.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                for ((index, scoresManche) in toutesLesLignes.withIndex()) {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                        Text(text = "${index + 1}", color = NoirCarte, modifier = Modifier.width(70.dp))
+                                        for (score in scoresManche) {
+                                            Text(text = "$score", color = NoirCarte, modifier = Modifier.weight(1f))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Mains révélées",
-                    fontWeight = FontWeight.Bold,
-                    color = CremeCarteFond,
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    for (j in partie.joueurs) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = j.nom, color = OrAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row {
-                                val mainDuJoueur = mainsReveleees[j.uid] ?: emptyList()
-                                for (carte in mainDuJoueur) {
-                                    CarteVisuelle(carte = carte, selectionnee = false, onClick = { })
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                }
+
+                    // Ma main révélée + message + bouton : en bas, comme en jeu normal
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row {
+                            for (carte in mainsReveleees[monUid] ?: emptyList()) {
+                                CarteVisuelle(carte = carte, selectionnee = false, onClick = { })
+                                Spacer(modifier = Modifier.width(2.dp))
                             }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (messageResultatPatrick.isNotEmpty()) {
+                            Text(
+                                text = messageResultatPatrick,
+                                color = CremeCarteFond,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        val dejaValide = partie.joueursPrets.contains(monUid)
+                        if (dejaValide) {
+                            Text(
+                                text = "En attente des autres joueurs... (${partie.joueursPrets.size}/${partie.joueurs.size})",
+                                color = CremeCarteFond,
+                                fontSize = 13.sp
+                            )
+                        } else {
+                            BoutonOvale(
+                                texte = "Manche suivante (${partie.joueursPrets.size}/${partie.joueurs.size})",
+                                onClick = {
+                                    validerMancheSuivante(
+                                        code = code,
+                                        uid = monUid,
+                                        onSucces = { },
+                                        onEchec = { erreur -> message = erreur }
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -326,5 +441,25 @@ fun EcranDeJeuEnLigne(
         onRetourMenu = onRetourMenu,
         modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
         )
+    }
+}
+@Composable
+private fun BlocMainRevelee(joueur: JoueurEnLigne, cartes: List<Carte>) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "${joueur.nom} — ${calculerScoreMain(cartes)} pts",
+            color = CremeCarteFond,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.widthIn(max = 140.dp).horizontalScroll(rememberScrollState())
+        ) {
+            for (carte in cartes) {
+                CarteVisuelle(carte = carte, selectionnee = false, onClick = { })
+                Spacer(modifier = Modifier.width(2.dp))
+            }
+        }
     }
 }
