@@ -314,23 +314,20 @@ fun EcranDeJeuEnLigne(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                        val adversaires = partie.joueurs.filter { it.uid != monUid }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
                         ) {
-                            for (j in partie.joueurs) {
-                                if (j.uid != monUid) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(text = j.nom, color = CremeCarteFond, fontSize = 12.sp)
-                                        PileDosDeCarteVisuelle(nombreCartes = j.nbCartes)
-                                        Text(
-                                            text = "Score : ${j.score}",
-                                            color = OrAccent,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
+                            adversaires.getOrNull(0)?.let { j ->
+                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
+                            }
+                            adversaires.getOrNull(1)?.let { j ->
+                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.CenterStart))
+                            }
+                            adversaires.getOrNull(2)?.let { j ->
+                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.CenterEnd))
                             }
                         }
 
@@ -464,6 +461,14 @@ private fun BlocMainRevelee(joueur: JoueurEnLigne, cartes: List<Carte>) {
                 Spacer(modifier = Modifier.width(2.dp))
             }
         }
+    }
+}
+@Composable
+private fun BlocJoueurAdverse(joueur: JoueurEnLigne, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = joueur.nom, color = CremeCarteFond, fontSize = 12.sp)
+        PileDosDeCarteVisuelle(nombreCartes = joueur.nbCartes)
+        Text(text = "Score : ${joueur.score}", color = OrAccent, fontSize = 11.sp)
     }
 }
 @Composable
