@@ -82,7 +82,7 @@ fun EcranChoixNombreJoueurs(
             )
 
             BoutonRond(texte = "+", onClick = {
-                if (nombreJoueurs < 6) {
+                if (nombreJoueurs < 4) {
                     nombreJoueurs++
                     ajusterListeNoms(nombreJoueurs)
                 }

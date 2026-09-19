@@ -59,6 +59,13 @@ fun rejoindrePartieEnLigne(
                 return@addOnSuccessListener
             }
 
+            val joueursActuels = document.get("joueurs") as? List<Map<String, Any>> ?: emptyList()
+
+            if (joueursActuels.size >= 4) {
+                onEchec(Exception("La partie est complète (4 joueurs maximum)"))
+                return@addOnSuccessListener
+            }
+
             val nouveauJoueur = mapOf("uid" to uid, "nom" to nomJoueur, "score" to 0)
 
             refPartie.update("joueurs", com.google.firebase.firestore.FieldValue.arrayUnion(nouveauJoueur))

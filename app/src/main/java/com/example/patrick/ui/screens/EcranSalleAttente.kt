@@ -66,7 +66,7 @@ fun EcranSalleAttente(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Text(text = "Joueurs (${partie.joueurs.size}) :", fontSize = 16.sp, color = OrAccent)
+        Text(text = "Joueurs (${partie.joueurs.size})/4 :", fontSize = 16.sp, color = OrAccent)
         Spacer(modifier = Modifier.height(8.dp))
 
         for (joueur in partie.joueurs) {
