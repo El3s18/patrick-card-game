@@ -78,3 +78,26 @@ fun trouverCombinaisonJouable(main: List<Carte>): List<Carte>? {
     }
     return null
 }
+
+fun trouverMeilleureCombinaisonJouable(main: List<Carte>): List<Carte>? {
+    var meilleure: List<Carte>? = null
+    var meilleureValeur = -1
+
+    for (taille in 5 downTo 2) {
+        val sousGroupes = combinaisons(main, taille)
+        for (groupe in sousGroupes) {
+            if (estUneCombinaisonValide(groupe)) {
+                val valeurGroupe = calculerScoreMain(groupe)
+                if (meilleure == null || taille > meilleure.size ||
+                    (taille == meilleure.size && valeurGroupe > meilleureValeur)) {
+                    meilleure = groupe
+                    meilleureValeur = valeurGroupe
+                }
+            }
+        }
+        // Dès qu'on a trouvé au moins une combinaison à cette taille (la plus grande
+        // possible), pas besoin de chercher plus petit : on garde la meilleure de cette taille
+        if (meilleure != null) break
+    }
+    return meilleure
+}

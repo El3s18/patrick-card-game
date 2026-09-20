@@ -59,6 +59,7 @@ import com.example.patrick.ui.components.BoutonOvale
 import com.example.patrick.ui.components.DosDeCarteVisuelle
 import com.example.patrick.ui.components.MenuOptionsPartie
 import com.example.patrick.ui.components.PileDosDeCarteVisuelle
+import com.example.patrick.ui.screens.EcranChoixDifficulte
 import com.example.patrick.ui.screens.EcranChoixNombreJoueurs
 import com.example.patrick.ui.screens.EcranDeJeuEnLigne
 import com.example.patrick.ui.screens.EcranLobbyEnLigne
@@ -77,7 +78,8 @@ enum class Ecran {
     REGLES,
     LOBBY_EN_LIGNE,
     SALLE_ATTENTE,
-    JEU
+    JEU,
+    CHOIX_DIFFICULTE,
 }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,11 +92,12 @@ class MainActivity : ComponentActivity() {
                     var modeContreIA by remember { mutableStateOf(true) }
                     var codePartieEnLigne by remember { mutableStateOf("") }
                     var modeEnLigne by remember { mutableStateOf(false) }
+                    var botEstDifficile by remember { mutableStateOf(false) }
                     when (ecranActuel) {
                         Ecran.MENU_PRINCIPAL -> EcranMenuPrincipal(
                             onJouerContreIA = {
                                 modeContreIA = true
-                                ecranActuel = Ecran.JEU
+                                ecranActuel = Ecran.CHOIX_DIFFICULTE
                             },
                             onJouerEnLocal = {
                                 modeContreIA = false
@@ -107,6 +110,12 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                         Ecran.REGLES -> EcranRegles(onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL })
+                        Ecran.CHOIX_DIFFICULTE -> EcranChoixDifficulte(
+                            onDifficulteChoisie = { difficile ->
+                                botEstDifficile = difficile
+                                ecranActuel = Ecran.JEU
+                            }
+                        )
                         Ecran.CHOIX_NOMBRE_JOUEURS -> EcranChoixNombreJoueurs(
                             onConfirmer = { noms ->
                                 nomsJoueursChoisis = noms
@@ -126,6 +135,7 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.padding(innerPadding),
                                     nomsJoueurs = if (modeContreIA) listOf("Moi") else nomsJoueursChoisis,
                                     contreIA = modeContreIA,
+                                    botEstDifficile = botEstDifficile,
                                     onRetourMenu = { ecranActuel = Ecran.MENU_PRINCIPAL }
                                 )
                             }
@@ -150,6 +160,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
+                        Ecran.CHOIX_DIFFICULTE -> EcranChoixDifficulte(
+                            onDifficulteChoisie = { difficile ->
+                                botEstDifficile = difficile
+                                ecranActuel = Ecran.JEU
+                            }
+                        )
                     }
                 }
             }
@@ -162,8 +178,8 @@ fun EcranDeTest(
     modifier: Modifier = Modifier,
     nomsJoueurs: List<String> = listOf("Moi"),
     contreIA: Boolean = true,
+    botEstDifficile: Boolean = false,
     onRetourMenu: () -> Unit = {},
-
 ) {
     var paquet by remember { mutableStateOf(melangerPaquet().toMutableList()) }
     var joueurs by remember {
@@ -191,6 +207,7 @@ fun EcranDeTest(
     var historiqueScores by remember { mutableStateOf(listOf<List<Int>>()) }
     var codePartieEnLigne by remember { mutableStateOf("") }
     var modeEnLigne by remember { mutableStateOf(false) }
+    var botEstDifficile by remember { mutableStateOf(false) }
 
     val joueurActif = joueurs[indexJoueurActif]
 
@@ -266,7 +283,7 @@ fun EcranDeTest(
 
     fun jouerBotAutomatiquement() {
         val partie = Partie(joueurs = joueurs, canaillou = paquet, bourrer = bourrer)
-        val botPeutCrierPatrick = jouerTourBot(partie, joueurs[1])
+        val botPeutCrierPatrick = jouerTourBot(partie, joueurs[1], botEstDifficile)
         joueurs =
             joueurs.toMutableList().also { it[1] = it[1].copy(main = it[1].main.toMutableList()) }
         bourrer = bourrer.toMutableList()
