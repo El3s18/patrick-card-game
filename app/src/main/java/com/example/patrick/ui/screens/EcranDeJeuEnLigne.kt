@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,8 +116,6 @@ fun EcranDeJeuEnLigne(
                     historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })
             }
             afficherResume = false
-        } else if (partie.statut == "terminee") {
-            onRetourMenu()
         }
     }
     LaunchedEffect(maMain.size) {
@@ -156,6 +155,19 @@ fun EcranDeJeuEnLigne(
             for ((uid, main) in mains) {
                 refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
             }
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observateur = androidx.lifecycle.LifecycleEventObserver { _, evenement ->
+            if (evenement == androidx.lifecycle.Lifecycle.Event.ON_STOP && partie.statut != "terminee") {
+                abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { })
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observateur)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observateur)
         }
     }
     val moi = partie.joueurs.find { it.uid == monUid }
@@ -226,212 +238,252 @@ fun EcranDeJeuEnLigne(
         )
     }
     Box(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = modifier.fillMaxSize().background(VertTapis).padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            if (afficherResume) {
-                val adversaires = partie.joueurs.filter { it.uid != monUid }
+        if (partie.statut == "terminee") {
+            val nomAbandonnant = partie.joueurs.find { it.uid == partie.uidAbandon }?.nom
+            Column(
+                modifier = Modifier.fillMaxSize().background(VertTapis).padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (nomAbandonnant != null) {
+                        "$nomAbandonnant a quitté la partie."
+                    } else {
+                        "La partie est terminée."
+                    },
+                    color = CremeCarteFond,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                BoutonOvale(texte = "Retour au menu", onClick = onRetourMenu)
+            }
+        } else {
+            Column(
+                modifier = modifier.fillMaxSize().background(VertTapis).padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (afficherResume) {
+                    val adversaires = partie.joueurs.filter { it.uid != monUid }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Premier adversaire : en haut, centré (face à moi)
-                    adversaires.getOrNull(0)?.let { j ->
-                        Box(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) {
-                            BlocMainRevelee(
-                                joueur = j,
-                                cartes = mainsReveleees[j.uid] ?: emptyList()
-                            )
-                        }
-                    }
-
-                    // Deuxième adversaire : à droite, centré verticalement
-                    adversaires.getOrNull(1)?.let { j ->
-                        Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
-                            BlocMainRevelee(
-                                joueur = j,
-                                cartes = mainsReveleees[j.uid] ?: emptyList()
-                            )
-                        }
-                    }
-
-                    // Troisième adversaire : à gauche, centré verticalement
-                    adversaires.getOrNull(2)?.let { j ->
-                        Box(
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp)
-                        ) {
-                            BlocMainRevelee(
-                                joueur = j,
-                                cartes = mainsReveleees[j.uid] ?: emptyList()
-                            )
-                        }
-                    }
-
-                    // Tableau des scores : au centre de l'écran
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .fillMaxWidth()
-                            .padding(horizontal = 5.dp)
-                            .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
-                            .padding(16.dp)
-                    ) {
-                        TableauScores(
-                            joueurs = partie.joueurs,
-                            historique = historiqueScoresEnLigne
-                        )
-                    }
-
-                    // Ma main révélée + message + bouton : en bas, comme en jeu normal
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row {
-                            for (carte in mainsReveleees[monUid] ?: emptyList()) {
-                                CarteVisuelle(carte = carte, selectionnee = false, onClick = { })
-                                Spacer(modifier = Modifier.width(2.dp))
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Premier adversaire : en haut, centré (face à moi)
+                        adversaires.getOrNull(0)?.let { j ->
+                            Box(
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)
+                            ) {
+                                BlocMainRevelee(
+                                    joueur = j,
+                                    cartes = mainsReveleees[j.uid] ?: emptyList()
+                                )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (messageResultatPatrick.isNotEmpty()) {
-                            Text(
-                                text = messageResultatPatrick,
-                                color = CremeCarteFond,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-                        val dejaValide = partie.joueursPrets.contains(monUid)
-                        if (dejaValide) {
-                            Text(
-                                text = "En attente des autres joueurs... (${partie.joueursPrets.size}/${partie.joueurs.size})",
-                                color = CremeCarteFond,
-                                fontSize = 13.sp
-                            )
-                        } else {
-                            BoutonOvale(
-                                texte = "Manche suivante (${partie.joueursPrets.size}/${partie.joueurs.size})",
-                                onClick = {
-                                    validerMancheSuivante(
-                                        code = code,
-                                        uid = monUid,
-                                        onSucces = { },
-                                        onEchec = { erreur -> message = erreur }
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val adversaires = partie.joueurs.filter { it.uid != monUid }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp)
-                    ) {
-                        adversaires.getOrNull(0)?.let { j ->
-                            BlocJoueurAdverse(
-                                joueur = j,
-                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
-                            )
-                        }
+
+                        // Deuxième adversaire : à droite, centré verticalement
                         adversaires.getOrNull(1)?.let { j ->
-                            BlocJoueurAdverse(
-                                joueur = j,
-                                modifier = Modifier.align(Alignment.CenterStart)
-                            )
+                            Box(
+                                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
+                            ) {
+                                BlocMainRevelee(
+                                    joueur = j,
+                                    cartes = mainsReveleees[j.uid] ?: emptyList()
+                                )
+                            }
                         }
+
+                        // Troisième adversaire : à gauche, centré verticalement
                         adversaires.getOrNull(2)?.let { j ->
-                            BlocJoueurAdverse(
-                                joueur = j,
-                                modifier = Modifier.align(Alignment.CenterEnd)
+                            Box(
+                                modifier = Modifier.align(Alignment.CenterStart)
+                                    .padding(start = 8.dp)
+                            ) {
+                                BlocMainRevelee(
+                                    joueur = j,
+                                    cartes = mainsReveleees[j.uid] ?: emptyList()
+                                )
+                            }
+                        }
+
+                        // Tableau des scores : au centre de l'écran
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .fillMaxWidth()
+                                .padding(horizontal = 5.dp)
+                                .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
+                                .padding(16.dp)
+                        ) {
+                            TableauScores(
+                                joueurs = partie.joueurs,
+                                historique = historiqueScoresEnLigne
                             )
                         }
-                    }
 
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        // Ma main révélée + message + bouton : en bas, comme en jeu normal
+                        Column(
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                                .padding(bottom = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row {
+                                for (carte in mainsReveleees[monUid] ?: emptyList()) {
+                                    CarteVisuelle(
+                                        carte = carte,
+                                        selectionnee = false,
+                                        onClick = { })
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (messageResultatPatrick.isNotEmpty()) {
+                                Text(
+                                    text = messageResultatPatrick,
+                                    color = CremeCarteFond,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                            val dejaValide = partie.joueursPrets.contains(monUid)
+                            if (dejaValide) {
+                                Text(
+                                    text = "En attente des autres joueurs... (${partie.joueursPrets.size}/${partie.joueurs.size})",
+                                    color = CremeCarteFond,
+                                    fontSize = 13.sp
+                                )
+                            } else {
+                                BoutonOvale(
+                                    texte = "Manche suivante (${partie.joueursPrets.size}/${partie.joueurs.size})",
+                                    onClick = {
+                                        validerMancheSuivante(
+                                            code = code,
+                                            uid = monUid,
+                                            onSucces = { },
+                                            onEchec = { erreur -> message = erreur }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val carteBourrer = partie.bourrer.lastOrNull()
-                        if (carteBourrer != null) {
-                            CarteVisuelle(
-                                carte = carteBourrer,
-                                selectionnee = false,
-                                onClick = { if (cEstMonTour) jouerPuisPiocher(true) }
-                            )
-                        } else {
-                            Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
+                        val adversaires = partie.joueurs.filter { it.uid != monUid }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                        ) {
+                            adversaires.getOrNull(0)?.let { j ->
+                                BlocJoueurAdverse(
+                                    joueur = j,
+                                    modifier = Modifier.align(Alignment.TopCenter)
+                                        .padding(top = 8.dp)
+                                )
+                            }
+                            adversaires.getOrNull(1)?.let { j ->
+                                BlocJoueurAdverse(
+                                    joueur = j,
+                                    modifier = Modifier.align(Alignment.CenterStart)
+                                )
+                            }
+                            adversaires.getOrNull(2)?.let { j ->
+                                BlocJoueurAdverse(
+                                    joueur = j,
+                                    modifier = Modifier.align(Alignment.CenterEnd)
+                                )
+                            }
                         }
 
-                        Spacer(modifier = Modifier.width(24.dp))
-
-                        DosDeCarteVisuelle(onClick = { if (cEstMonTour) jouerPuisPiocher(false) })
-                    }
-
-                    Column {
-                        Text(
-                            text = "${moi?.nom ?: "Moi"} — Score : ${moi?.score ?: 0}",
-                            color = OrAccent,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                         Row(
                             horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            for (carte in maMain) {
+                            val carteBourrer = partie.bourrer.lastOrNull()
+                            if (carteBourrer != null) {
                                 CarteVisuelle(
-                                    carte = carte,
-                                    selectionnee = selection.contains(carte),
-                                    onClick = { toggleSelection(carte) }
+                                    carte = carteBourrer,
+                                    selectionnee = false,
+                                    onClick = { if (cEstMonTour) jouerPuisPiocher(true) }
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                            } else {
+                                Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
                             }
-                            if (peutCrierPatrick) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(onClick = {
-                                    crierPatrickEnLigne(
-                                        code = code,
-                                        onSucces = { },
-                                        onEchec = { erreur -> message = erreur })
-                                }) {
-                                    Text("🔥 PATRICK !")
+
+                            Spacer(modifier = Modifier.width(24.dp))
+
+                            DosDeCarteVisuelle(onClick = { if (cEstMonTour) jouerPuisPiocher(false) })
+                        }
+
+                        Column {
+                            Text(
+                                text = "${moi?.nom ?: "Moi"} — Score : ${moi?.score ?: 0}",
+                                color = OrAccent,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                for (carte in maMain) {
+                                    CarteVisuelle(
+                                        carte = carte,
+                                        selectionnee = selection.contains(carte),
+                                        onClick = { toggleSelection(carte) }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                if (peutCrierPatrick) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(onClick = {
+                                        crierPatrickEnLigne(
+                                            code = code,
+                                            onSucces = { },
+                                            onEchec = { erreur -> message = erreur })
+                                    }) {
+                                        Text("🔥 PATRICK !")
+                                    }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (cEstMonTour) "C'est ton tour !" else "En attente de ${
+                                    partie.joueurs.getOrNull(
+                                        partie.indexJoueurActif
+                                    )?.nom ?: "..."
+                                }",
+                                color = CremeCarteFond,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (cEstMonTour) "C'est ton tour !" else "En attente de ${
-                                partie.joueurs.getOrNull(
-                                    partie.indexJoueurActif
-                                )?.nom ?: "..."
-                            }",
-                            color = CremeCarteFond,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
                     }
                 }
             }
+            MenuOptionsPartie(
+                onAbandonner = {
+                    abandonnerPartieEnLigne(
+                        code = code,
+                        uid = monUid,
+                        onSucces = { },
+                        onEchec = { erreur -> message = erreur })
+                },
+                onRetourMenu = {
+                    abandonnerPartieEnLigne(
+                        code = code,
+                        uid = monUid,
+                        onSucces = { },
+                        onEchec = { erreur -> message = erreur })
+                },
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+            )
         }
-    MenuOptionsPartie(
-        onAbandonner = {
-            abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
-        },
-        onRetourMenu = {
-            abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
-        },
-        modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
-    )
 
     if (!afficherResume) {
         BoutonOvale(

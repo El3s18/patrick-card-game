@@ -85,7 +85,8 @@ data class PartieEnLigne(
     val indexJoueurActif: Int = 0,
     val quiCrie: String = "",
     val joueursPrets: List<String> = emptyList(),
-    val perdantManche: String = ""
+    val perdantManche: String = "",
+    val uidAbandon: String = ""
 )
 
 fun ecouterPartie(
@@ -126,7 +127,8 @@ fun ecouterPartie(
                 indexJoueurActif = (snapshot.getLong("indexJoueurActif"))?.toInt() ?: 0,
                 quiCrie = snapshot.getString("quiCrie") ?: "",
                 joueursPrets = joueursPretsRaw,
-                perdantManche = snapshot.getString("perdantManche") ?: ""
+                perdantManche = snapshot.getString("perdantManche") ?: "",
+                uidAbandon = snapshot.getString("uidAbandon") ?: ""
             )
 
             onMiseAJour(partie)
@@ -418,7 +420,13 @@ fun abandonnerPartieEnLigne(
         val nouveauxJoueurs = joueursRaw.map { j ->
             if (j["uid"] == uid) j.toMutableMap().apply { this["score"] = 111 } else j
         }
-        refPartie.update(mapOf("joueurs" to nouveauxJoueurs, "statut" to "terminee"))
+        refPartie.update(
+            mapOf(
+                "joueurs" to nouveauxJoueurs,
+                "statut" to "terminee",
+                "uidAbandon" to uid
+            )
+        )
             .addOnSuccessListener { onSucces() }
             .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
     }.addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
