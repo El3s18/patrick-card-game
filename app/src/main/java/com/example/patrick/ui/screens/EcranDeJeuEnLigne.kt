@@ -111,12 +111,14 @@ fun EcranDeJeuEnLigne(
             }
         } else if (partie.statut == "en_cours") {
             if (afficherResume) {
-                historiqueScoresEnLigne = historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })
+                historiqueScoresEnLigne =
+                    historiqueScoresEnLigne + listOf(partie.joueurs.map { it.score })
             }
             afficherResume = false
+        } else if (partie.statut == "terminee") {
+            onRetourMenu()
         }
     }
-
     LaunchedEffect(maMain.size) {
         if (maMain.isNotEmpty()) {
             mettreAJourNombreCartesEnLigne(code, monUid, maMain.size)
@@ -235,21 +237,32 @@ fun EcranDeJeuEnLigne(
                     // Premier adversaire : en haut, centré (face à moi)
                     adversaires.getOrNull(0)?.let { j ->
                         Box(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) {
-                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
+                            BlocMainRevelee(
+                                joueur = j,
+                                cartes = mainsReveleees[j.uid] ?: emptyList()
+                            )
                         }
                     }
 
                     // Deuxième adversaire : à droite, centré verticalement
                     adversaires.getOrNull(1)?.let { j ->
                         Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
-                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
+                            BlocMainRevelee(
+                                joueur = j,
+                                cartes = mainsReveleees[j.uid] ?: emptyList()
+                            )
                         }
                     }
 
                     // Troisième adversaire : à gauche, centré verticalement
                     adversaires.getOrNull(2)?.let { j ->
-                        Box(modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp)) {
-                            BlocMainRevelee(joueur = j, cartes = mainsReveleees[j.uid] ?: emptyList())
+                        Box(
+                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp)
+                        ) {
+                            BlocMainRevelee(
+                                joueur = j,
+                                cartes = mainsReveleees[j.uid] ?: emptyList()
+                            )
                         }
                     }
 
@@ -262,7 +275,10 @@ fun EcranDeJeuEnLigne(
                             .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
                             .padding(16.dp)
                     ) {
-                        TableauScores(joueurs = partie.joueurs, historique = historiqueScoresEnLigne)
+                        TableauScores(
+                            joueurs = partie.joueurs,
+                            historique = historiqueScoresEnLigne
+                        )
                     }
 
                     // Ma main révélée + message + bouton : en bas, comme en jeu normal
@@ -309,137 +325,157 @@ fun EcranDeJeuEnLigne(
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column (
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                        val adversaires = partie.joueurs.filter { it.uid != monUid }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                        ) {
-                            adversaires.getOrNull(0)?.let { j ->
-                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
-                            }
-                            adversaires.getOrNull(1)?.let { j ->
-                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.CenterStart))
-                            }
-                            adversaires.getOrNull(2)?.let { j ->
-                                BlocJoueurAdverse(joueur = j, modifier = Modifier.align(Alignment.CenterEnd))
-                            }
-                        }
-
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            val carteBourrer = partie.bourrer.lastOrNull()
-                            if (carteBourrer != null) {
-                                CarteVisuelle(
-                                    carte = carteBourrer,
-                                    selectionnee = false,
-                                    onClick = { if (cEstMonTour) jouerPuisPiocher(true) }
-                                )
-                            } else {
-                                Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
-                            }
-
-                            Spacer(modifier = Modifier.width(24.dp))
-
-                            DosDeCarteVisuelle(onClick = { if (cEstMonTour) jouerPuisPiocher(false) })
-                        }
-
-                        Column {
-                            Text(
-                                text = "${moi?.nom ?: "Moi"} — Score : ${moi?.score ?: 0}",
-                                color = OrAccent,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val adversaires = partie.joueurs.filter { it.uid != monUid }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                    ) {
+                        adversaires.getOrNull(0)?.let { j ->
+                            BlocJoueurAdverse(
+                                joueur = j,
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
                             )
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                for (carte in maMain) {
-                                    CarteVisuelle(
-                                        carte = carte,
-                                        selectionnee = selection.contains(carte),
-                                        onClick = { toggleSelection(carte) }
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                if (peutCrierPatrick) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Button(onClick = {
-                                        crierPatrickEnLigne(
-                                            code = code,
-                                            onSucces = { },
-                                            onEchec = { erreur -> message = erreur })
-                                    }) {
-                                        Text("🔥 PATRICK !")
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = if (cEstMonTour) "C'est ton tour !" else "En attente de ${
-                                    partie.joueurs.getOrNull(
-                                        partie.indexJoueurActif
-                                    )?.nom ?: "..."
-                                }",
-                                color = CremeCarteFond,
-                                fontSize = 14.sp
+                        }
+                        adversaires.getOrNull(1)?.let { j ->
+                            BlocJoueurAdverse(
+                                joueur = j,
+                                modifier = Modifier.align(Alignment.CenterStart)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
+                        }
+                        adversaires.getOrNull(2)?.let { j ->
+                            BlocJoueurAdverse(
+                                joueur = j,
+                                modifier = Modifier.align(Alignment.CenterEnd)
+                            )
                         }
                     }
 
-                    BoutonOvale(
-                        texte = "📊",
-                        onClick = { afficherTableauScoresEnCours = true },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val carteBourrer = partie.bourrer.lastOrNull()
+                        if (carteBourrer != null) {
+                            CarteVisuelle(
+                                carte = carteBourrer,
+                                selectionnee = false,
+                                onClick = { if (cEstMonTour) jouerPuisPiocher(true) }
+                            )
+                        } else {
+                            Box(modifier = Modifier.size(width = 70.dp, height = 100.dp))
+                        }
 
-                    if (afficherTableauScoresEnCours) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .fillMaxWidth()
-                                .padding(horizontal = 5.dp)
-                                .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
-                                .padding(16.dp)
+                        Spacer(modifier = Modifier.width(24.dp))
+
+                        DosDeCarteVisuelle(onClick = { if (cEstMonTour) jouerPuisPiocher(false) })
+                    }
+
+                    Column {
+                        Text(
+                            text = "${moi?.nom ?: "Moi"} — Score : ${moi?.score ?: 0}",
+                            color = OrAccent,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column {
-                                Row(
-                                    horizontalArrangement = Arrangement.End,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "✕",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = NoirCarte,
-                                        modifier = Modifier.clickable { afficherTableauScoresEnCours = false }
-                                    )
-                                }
+                            for (carte in maMain) {
+                                CarteVisuelle(
+                                    carte = carte,
+                                    selectionnee = selection.contains(carte),
+                                    onClick = { toggleSelection(carte) }
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            if (peutCrierPatrick) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                TableauScores(joueurs = partie.joueurs, historique = historiqueScoresEnLigne)
+                                Button(onClick = {
+                                    crierPatrickEnLigne(
+                                        code = code,
+                                        onSucces = { },
+                                        onEchec = { erreur -> message = erreur })
+                                }) {
+                                    Text("🔥 PATRICK !")
+                                }
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (cEstMonTour) "C'est ton tour !" else "En attente de ${
+                                partie.joueurs.getOrNull(
+                                    partie.indexJoueurActif
+                                )?.nom ?: "..."
+                            }",
+                            color = CremeCarteFond,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = message, color = CremeCarteFond, fontSize = 12.sp)
                     }
                 }
             }
         }
-        MenuOptionsPartie(
-                onAbandonner = {
-                    abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { })
-                },
-        onRetourMenu = onRetourMenu,
+    MenuOptionsPartie(
+        onAbandonner = {
+            abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
+        },
+        onRetourMenu = {
+            abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
+        },
         modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+    )
+
+    if (!afficherResume) {
+        BoutonOvale(
+            texte = "📊",
+            onClick = { afficherTableauScoresEnCours = true },
+            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+        )
+    }
+
+    if (afficherTableauScoresEnCours) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = 5.dp)
+                .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "✕",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = NoirCarte,
+                        modifier = Modifier.clickable { afficherTableauScoresEnCours = false }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                TableauScores(joueurs = partie.joueurs, historique = historiqueScoresEnLigne)
+            }
+        }
+    }
+        MenuOptionsPartie(
+            onAbandonner = {
+                abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
+            },
+            onRetourMenu = {
+                abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { erreur -> message = erreur })
+            },
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
         )
     }
 }

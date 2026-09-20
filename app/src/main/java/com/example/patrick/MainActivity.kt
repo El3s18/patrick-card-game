@@ -2,7 +2,6 @@ package com.example.patrick
 
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -48,9 +47,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.example.patrick.data.abandonnerPartieEnLigne
-import com.example.patrick.data.creerPartieEnLigne
-import com.example.patrick.data.rejoindrePartieEnLigne
 import com.example.patrick.model.calculerScoreMain
 import com.example.patrick.model.distribuerCartes
 import com.example.patrick.model.jouerTourBot
@@ -74,8 +70,6 @@ import com.example.patrick.ui.theme.NoirCarte
 import com.example.patrick.ui.theme.OrAccent
 import com.example.patrick.ui.theme.RougeCarte
 import com.example.patrick.ui.theme.VertTapis
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 enum class Ecran {
     MENU_PRINCIPAL,
@@ -117,7 +111,8 @@ class MainActivity : ComponentActivity() {
                             onConfirmer = { noms ->
                                 nomsJoueursChoisis = noms
                                 ecranActuel = Ecran.JEU
-                            }
+                            },
+                                    onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
                         Ecran.JEU -> {
                             if (modeEnLigne) {
