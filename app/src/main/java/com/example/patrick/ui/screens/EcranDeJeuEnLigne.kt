@@ -23,7 +23,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -174,18 +173,15 @@ fun EcranDeJeuEnLigne(
         }
     }
 
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observateur = androidx.lifecycle.LifecycleEventObserver { _, evenement ->
-            if (evenement == androidx.lifecycle.Lifecycle.Event.ON_STOP && partie.statut != "terminee") {
-                abandonnerPartieEnLigne(code = code, uid = monUid, onSucces = { }, onEchec = { })
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observateur)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observateur)
-        }
-    }
+    // Avant, on abandonnait automatiquement la partie dès que l'app passait en
+    // arrière-plan (ON_STOP) — mais ON_STOP se déclenche aussi juste pour répondre
+    // à un message, changer d'app un instant, ou une rotation d'écran : ce n'est
+    // pas un signal de "l'utilisateur a quitté pour de bon". Il n'y a d'ailleurs
+    // aucun moyen fiable de détecter un arrêt brutal (kill du process) depuis le
+    // code : dans ce cas le process n'existe plus, donc rien ne peut s'exécuter
+    // pour prévenir Firestore. On ne déclenche donc plus d'abandon automatique ici :
+    // seul le bouton "Abandonner" du menu (déjà existant) termine la partie
+    // volontairement.
     val moi = partie.joueurs.find { it.uid == monUid }
     val joueurActifUid = partie.joueurs.getOrNull(partie.indexJoueurActif)?.uid
     val cEstMonTour = joueurActifUid == monUid
