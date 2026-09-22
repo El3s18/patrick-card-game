@@ -416,7 +416,31 @@ fun EcranDeTest(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = message, fontSize = 16.sp, color = CremeCarteFond)
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .background(CremeCarteFond, shape = RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Scores finaux",
+                                fontWeight = FontWeight.Bold,
+                                color = NoirCarte,
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            for (j in joueurs.sortedBy { it.score }) {
+                                Text(
+                                    text = "${j.nom} : ${j.score} pts",
+                                    color = NoirCarte,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                     BoutonOvale(texte = "Rejouer", onClick = { recommencerPartie() })
                     Spacer(modifier = Modifier.height(12.dp))
                     BoutonOvale(texte = "Retour au menu", onClick = onRetourMenu, couleur = NoirCarte)
