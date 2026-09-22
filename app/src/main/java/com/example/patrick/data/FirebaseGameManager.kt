@@ -4,6 +4,7 @@ import com.example.patrick.model.melangerPaquet
 import com.example.patrick.ui.screens.BoutonMenu
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.DocumentReference
 import com.example.patrick.model.Carte
 import com.example.patrick.model.Famille
 import com.example.patrick.model.Valeur
@@ -86,7 +87,11 @@ data class PartieEnLigne(
     val quiCrie: String = "",
     val joueursPrets: List<String> = emptyList(),
     val perdantManche: String = "",
-    val uidAbandon: String = ""
+    val uidAbandon: String = "",
+    // Vrai une fois que le score de la manche en cours de révélation a été calculé
+    // et écrit. Sert de garde-fou pour ne jamais calculer le score deux fois
+    // (ex: si l'hôte revient d'arrière-plan pendant que le statut est "revelation").
+    val scoreCalcule: Boolean = false
 )
 
 fun ecouterPartie(
@@ -128,7 +133,8 @@ fun ecouterPartie(
                 quiCrie = snapshot.getString("quiCrie") ?: "",
                 joueursPrets = joueursPretsRaw,
                 perdantManche = snapshot.getString("perdantManche") ?: "",
-                uidAbandon = snapshot.getString("uidAbandon") ?: ""
+                uidAbandon = snapshot.getString("uidAbandon") ?: "",
+                scoreCalcule = snapshot.getBoolean("scoreCalcule") ?: false
             )
 
             onMiseAJour(partie)
@@ -336,44 +342,108 @@ fun calculerScoresApresRevelationEnLigne(
     val db = FirebaseFirestore.getInstance()
     val refPartie = db.collection("parties").document(code)
 
-    var scoresCollectes = mutableMapOf<String, Int>()
+    val scoresCollectes = mutableMapOf<String, Int>()
     var compteur = 0
+    // Si la lecture d'une main échoue même après les tentatives, on ne veut surtout
+    // pas écrire des scores calculés sur des données incomplètes : mieux vaut
+    // remonter l'erreur (et laisser l'hôte réessayer) que de fausser la partie.
+    var lectureEnErreur = false
 
-    for (joueur in joueurs) {
+    fun lireMainAvecRetry(joueur: JoueurEnLigne, tentativesRestantes: Int) {
         refPartie.collection("mains").document(joueur.uid).get()
             .addOnSuccessListener { snapshot ->
                 val cartesRaw = snapshot.get("cartes") as? List<Map<String, Any>> ?: emptyList()
                 val main = cartesRaw.map { mapVersCarte(it) }
                 scoresCollectes[joueur.uid] = calculerScoreMain(main)
                 compteur++
-
                 if (compteur == joueurs.size) {
-                    val scoreAppelant = scoresCollectes[uidQuiCrie] ?: 0
-                    val joueursAvecMoins = joueurs.filter {
-                        it.uid != uidQuiCrie && (scoresCollectes[it.uid] ?: 0) < scoreAppelant
-                    }
-                    val ajouts = joueurs.associate { j ->
-                        val ajout = if (joueursAvecMoins.isEmpty()) {
-                            if (j.uid == uidQuiCrie) 0 else (scoresCollectes[j.uid] ?: 0)
-                        } else if (j.uid == uidQuiCrie) {
-                            scoreAppelant + 10 * joueursAvecMoins.size
-                        } else {
-                            0
-                        }
-                        j.uid to ajout
-                    }
-                    val nouveauxJoueurs = joueurs.map { j ->
-                        mapOf("uid" to j.uid, "nom" to j.nom, "score" to (j.score + (ajouts[j.uid] ?: 0)))
-                    }
-
-                    val uidPerdantManche = ajouts.maxByOrNull { it.value }?.key ?: uidQuiCrie
-                    val perdant = nouveauxJoueurs.find { (it["score"] as Int) >= 111 }
-                    refPartie.update("joueurs", nouveauxJoueurs)
-                        .addOnSuccessListener { onSucces(perdant?.get("uid") as? String, uidPerdantManche) }
-                        .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+                    terminerCalcul(db, refPartie, joueurs, uidQuiCrie, scoresCollectes, lectureEnErreur, onSucces, onEchec)
                 }
             }
-            .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+            .addOnFailureListener {
+                if (tentativesRestantes > 0) {
+                    lireMainAvecRetry(joueur, tentativesRestantes - 1)
+                } else {
+                    lectureEnErreur = true
+                    compteur++
+                    // compteur est bien incrémenté ici aussi : sans ça, un échec de
+                    // lecture bloquait tout le calcul pour toujours (c'était le bug
+                    // d'origine derrière les scores de manche "oubliés").
+                    if (compteur == joueurs.size) {
+                        terminerCalcul(db, refPartie, joueurs, uidQuiCrie, scoresCollectes, lectureEnErreur, onSucces, onEchec)
+                    }
+                }
+            }
+    }
+
+    for (joueur in joueurs) {
+        lireMainAvecRetry(joueur, tentativesRestantes = 2)
+    }
+}
+
+private fun terminerCalcul(
+    db: FirebaseFirestore,
+    refPartie: DocumentReference,
+    joueurs: List<JoueurEnLigne>,
+    uidQuiCrie: String,
+    scoresCollectes: Map<String, Int>,
+    lectureEnErreur: Boolean,
+    onSucces: (perdantFinDePartieUid: String?, uidPerdantManche: String) -> Unit,
+    onEchec: (String) -> Unit
+) {
+    if (lectureEnErreur) {
+        onEchec("Impossible de lire la main d'un joueur, réessaie")
+        return
+    }
+
+    val scoreAppelant = scoresCollectes[uidQuiCrie] ?: 0
+    val joueursAvecMoins = joueurs.filter {
+        it.uid != uidQuiCrie && (scoresCollectes[it.uid] ?: 0) < scoreAppelant
+    }
+    val ajouts = joueurs.associate { j ->
+        val ajout = if (joueursAvecMoins.isEmpty()) {
+            if (j.uid == uidQuiCrie) 0 else (scoresCollectes[j.uid] ?: 0)
+        } else if (j.uid == uidQuiCrie) {
+            scoreAppelant + 10 * joueursAvecMoins.size
+        } else {
+            0
+        }
+        j.uid to ajout
+    }
+    val uidPerdantManche = ajouts.maxByOrNull { it.value }?.key ?: uidQuiCrie
+
+    // Écriture transactionnelle : on relit "joueurs" au dernier moment, à l'intérieur
+    // de la transaction, pour ne jamais écraser une écriture concurrente (par ex.
+    // mettreAJourNombreCartesEnLigne appelée par un autre joueur au même instant).
+    // Le "perdantManche" et le drapeau "scoreCalcule" partent dans la MÊME écriture
+    // que les scores, donc plus jamais désynchronisés l'un de l'autre.
+    db.runTransaction { transaction ->
+        val snapshot = transaction.get(refPartie)
+        val joueursActuelsRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: emptyList()
+        val nouveauxJoueurs = joueursActuelsRaw.map { j ->
+            val uid = j["uid"] as? String ?: ""
+            val scoreActuel = (j["score"] as? Long)?.toInt() ?: 0
+            val ajout = ajouts[uid] ?: 0
+            j.toMutableMap().apply { this["score"] = scoreActuel + ajout }
+        }
+        val perdantFinDePartie = nouveauxJoueurs.find { (it["score"] as Int) >= 111 }
+
+        val misesAJour = mutableMapOf<String, Any>(
+            "joueurs" to nouveauxJoueurs,
+            "scoreCalcule" to true
+        )
+        if (perdantFinDePartie != null) {
+            misesAJour["statut"] = "terminee"
+        } else {
+            misesAJour["perdantManche"] = uidPerdantManche
+        }
+        transaction.update(refPartie, misesAJour)
+
+        perdantFinDePartie?.get("uid") as? String
+    }.addOnSuccessListener { perdantFinDePartieUid ->
+        onSucces(perdantFinDePartieUid, uidPerdantManche)
+    }.addOnFailureListener { e ->
+        onEchec(e.message ?: "Erreur lors de l'écriture des scores")
     }
 }
 
@@ -415,32 +485,43 @@ fun abandonnerPartieEnLigne(
 ) {
     val db = FirebaseFirestore.getInstance()
     val refPartie = db.collection("parties").document(code)
-    refPartie.get().addOnSuccessListener { snapshot ->
+    // Transaction plutôt que get()+update() : on ne veut pas qu'un abandon écrase
+    // par erreur un score que quelqu'un d'autre est en train d'écrire au même instant.
+    db.runTransaction { transaction ->
+        val snapshot = transaction.get(refPartie)
         val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: emptyList()
         val nouveauxJoueurs = joueursRaw.map { j ->
             if (j["uid"] == uid) j.toMutableMap().apply { this["score"] = 111 } else j
         }
-        refPartie.update(
+        transaction.update(
+            refPartie,
             mapOf(
                 "joueurs" to nouveauxJoueurs,
                 "statut" to "terminee",
                 "uidAbandon" to uid
             )
         )
-            .addOnSuccessListener { onSucces() }
-            .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
-    }.addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
+    }.addOnSuccessListener { onSucces() }
+        .addOnFailureListener { e -> onEchec(e.message ?: "Erreur") }
 }
 
 fun mettreAJourNombreCartesEnLigne(code: String, uid: String, nombre: Int) {
     val db = FirebaseFirestore.getInstance()
     val refPartie = db.collection("parties").document(code)
-    refPartie.get().addOnSuccessListener { snapshot ->
-        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: return@addOnSuccessListener
+    // Cette fonction est appelée en continu (à chaque changement de main de chaque
+    // joueur) : c'était la source la plus probable de scores écrasés en silence,
+    // car un get()+update() en deux temps peut réécrire par-dessus une écriture de
+    // score concurrente basée sur une version périmée du document. La transaction
+    // relit "joueurs" au dernier moment et Firestore réessaie automatiquement en
+    // cas de conflit.
+    db.runTransaction { transaction ->
+        val snapshot = transaction.get(refPartie)
+        val joueursRaw = snapshot.get("joueurs") as? List<Map<String, Any>> ?: return@runTransaction null
         val nouveauxJoueurs = joueursRaw.map { j ->
             if (j["uid"] == uid) j.toMutableMap().apply { this["nbCartes"] = nombre } else j
         }
-        refPartie.update("joueurs", nouveauxJoueurs)
+        transaction.update(refPartie, "joueurs", nouveauxJoueurs)
+        null
     }
 }
 

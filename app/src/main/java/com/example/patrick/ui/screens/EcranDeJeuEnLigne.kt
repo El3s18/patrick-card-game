@@ -85,30 +85,37 @@ fun EcranDeJeuEnLigne(
         ecouterMaMain(code) { mainMiseAJour -> maMain = mainMiseAJour }
     }
 
-    // Dès que la partie passe en "revelation", SEUL l'hôte calcule les scores
-    LaunchedEffect(partie.statut) {
+    var erreurCalculScore by remember { mutableStateOf(false) }
+
+    fun lancerCalculScores() {
+        erreurCalculScore = false
+        calculerScoresApresRevelationEnLigne(
+            code = code,
+            joueurs = partie.joueurs,
+            uidQuiCrie = partie.quiCrie,
+            // Les scores, le statut et le drapeau scoreCalcule sont maintenant tous
+            // écrits atomiquement à l'intérieur de calculerScoresApresRevelationEnLigne :
+            // il n'y a plus rien à réécrire ici en cas de succès.
+            onSucces = { _, _ -> },
+            onEchec = {
+                erreurCalculScore = true
+                message = "Erreur lors du calcul du score, réessaie."
+            }
+        )
+    }
+
+    // Dès que la partie passe en "revelation", SEUL l'hôte calcule les scores.
+    // On garde aussi partie.scoreCalcule dans la clé : ça évite de relancer le calcul
+    // une deuxième fois si l'hôte revient d'arrière-plan pendant la révélation.
+    LaunchedEffect(partie.statut, partie.scoreCalcule) {
         if (partie.statut == "revelation") {
             scoresAvant = partie.joueurs.associate { it.uid to it.score }
             afficherResume = true
             recupererToutesLesMainsEnLigne(code, partie.joueurs) { mains ->
                 mainsReveleees = mains
             }
-            if (monUid == partie.hoteUid) {
-                calculerScoresApresRevelationEnLigne(
-                    code = code,
-                    joueurs = partie.joueurs,
-                    uidQuiCrie = partie.quiCrie,
-                    onSucces = { perdantFinDePartieUid, uidPerdantManche ->
-                        val db = FirebaseFirestore.getInstance()
-                        val refPartie = db.collection("parties").document(code)
-                        if (perdantFinDePartieUid != null) {
-                            refPartie.update("statut", "terminee")
-                        } else {
-                            refPartie.update("perdantManche", uidPerdantManche)
-                        }
-                    },
-                    onEchec = { }
-                )
+            if (monUid == partie.hoteUid && !partie.scoreCalcule) {
+                lancerCalculScores()
             }
         } else if (partie.statut == "en_cours") {
             if (afficherResume) {
@@ -142,19 +149,28 @@ fun EcranDeJeuEnLigne(
             }
             val indexPerdant = partie.joueurs.indexOfFirst { it.uid == partie.perdantManche }
                 .let { if (it == -1) 0 else it }
-            refPartie.update(
+            // Un seul batch atomique pour le document de la partie ET toutes les mains :
+            // avant, ces écritures étaient séparées, ce qui laissait une fenêtre où le
+            // statut passait déjà à "en_cours" (et un joueur pouvait donc jouer) alors
+            // que sa main n'avait pas encore été redistribuée côté serveur — c'est ce
+            // qui pouvait produire des mains à 6 cartes après un bug de manche précédente.
+            val batch = db.batch()
+            batch.update(
+                refPartie,
                 mapOf(
                     "statut" to "en_cours",
                     "canaillou" to nouveauPaquet.map { carteVersMap(it) },
                     "bourrer" to emptyList<Map<String, String>>(),
                     "indexJoueurActif" to indexPerdant,
                     "joueursPrets" to emptyList<String>(),
-                    "perdantManche" to ""
+                    "perdantManche" to "",
+                    "scoreCalcule" to false
                 )
             )
             for ((uid, main) in mains) {
-                refPartie.collection("mains").document(uid).set(mapOf("cartes" to main))
+                batch.set(refPartie.collection("mains").document(uid), mapOf("cartes" to main))
             }
+            batch.commit()
         }
     }
 
@@ -335,6 +351,20 @@ fun EcranDeJeuEnLigne(
                                 }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
+                            if (erreurCalculScore && monUid == partie.hoteUid) {
+                                Text(
+                                    text = "Erreur lors du calcul du score.",
+                                    color = CremeCarteFond,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                BoutonOvale(
+                                    texte = "Réessayer",
+                                    onClick = { lancerCalculScores() }
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                             if (messageResultatPatrick.isNotEmpty()) {
                                 Text(
                                     text = messageResultatPatrick,
