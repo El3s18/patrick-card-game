@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,8 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.patrick.ui.theme.OrAccent
 import com.example.patrick.ui.theme.VertTapis
-import com.example.patrick.ui.theme.BleuCiel
-import com.example.patrick.ui.theme.RougeCarte
 
 @Composable
 fun EcranChoixDifficulte(
@@ -52,8 +51,15 @@ fun EcranChoixDifficulte(
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(8.dp)
+                // Sans ça, le bouton se retrouve sous la barre de statut / l'encoche,
+                // hors de portée du doigt. statusBarsPadding() pousse le contenu juste
+                // en dessous, quelle que soit la hauteur réelle de la barre sur l'appareil.
+                .statusBarsPadding()
+                .padding(4.dp)
+                // clickable AVANT le padding final : ça agrandit la zone tactile
+                // au-delà du texte lui-même, plus facile à toucher avec le pouce.
                 .clickable { onRetour() }
+                .padding(12.dp)
         )
     }
 }
