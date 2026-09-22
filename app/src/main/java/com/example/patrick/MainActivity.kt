@@ -114,7 +114,8 @@ class MainActivity : ComponentActivity() {
                             onDifficulteChoisie = { difficile ->
                                 botEstDifficile = difficile
                                 ecranActuel = Ecran.JEU
-                            }
+                            },
+                            onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
                         )
                         Ecran.CHOIX_NOMBRE_JOUEURS -> EcranChoixNombreJoueurs(
                             onConfirmer = { noms ->
@@ -159,12 +160,6 @@ class MainActivity : ComponentActivity() {
                                 ecranActuel = Ecran.JEU
                             },
                             onRetour = { ecranActuel = Ecran.MENU_PRINCIPAL }
-                        )
-                        Ecran.CHOIX_DIFFICULTE -> EcranChoixDifficulte(
-                            onDifficulteChoisie = { difficile ->
-                                botEstDifficile = difficile
-                                ecranActuel = Ecran.JEU
-                            }
                         )
                     }
                 }

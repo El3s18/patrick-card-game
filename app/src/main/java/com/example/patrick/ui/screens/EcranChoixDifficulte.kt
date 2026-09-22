@@ -1,7 +1,9 @@
 package com.example.patrick.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,25 +22,38 @@ import com.example.patrick.ui.theme.RougeCarte
 
 @Composable
 fun EcranChoixDifficulte(
-    onDifficulteChoisie: (Boolean) -> Unit
+    onDifficulteChoisie: (Boolean) -> Unit,
+    onRetour: () -> Unit = {}
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(VertTapis)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(VertTapis)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            androidx.compose.material3.Text(
+                text = "Choisis ta difficulté",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = OrAccent
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            BoutonMenu(texte = "😊 Facile", onClick = { onDifficulteChoisie(false) })
+            Spacer(modifier = Modifier.height(16.dp))
+            BoutonMenu(texte = "🔥 Difficile", onClick = { onDifficulteChoisie(true) })
+        }
         androidx.compose.material3.Text(
-            text = "Choisis ta difficulté",
-            fontSize = 24.sp,
+            text = "← Retour",
+            color = OrAccent,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = OrAccent
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .clickable { onRetour() }
         )
-        Spacer(modifier = Modifier.height(32.dp))
-        BoutonMenu(texte = "😊 Facile", onClick = { onDifficulteChoisie(false) })
-        Spacer(modifier = Modifier.height(16.dp))
-        BoutonMenu(texte = "🔥 Difficile", onClick = { onDifficulteChoisie(true) })
     }
 }
